@@ -64,6 +64,8 @@
 
 #define USE_SURFACE_ALLOC 1
 #define FRAME_DROP_FREQ 0
+#define LPA_MIN_DURATION_USEC_ALLOWED 30000000
+#define LPA_MIN_DURATION_USEC_DEFAULT 60000000
 
 namespace android {
 
@@ -960,13 +962,21 @@ status_t AwesomePlayer::play_l() {
                         ALOGV("nchannels %d;LPA will be skipped if nchannels is > 2 or nchannels == 0",nchannels);
                     }
                 }
-                char lpaDecode[128];
+                char lpaDecode[PROPERTY_VALUE_MAX];
+                uint32_t minDurationForLPA = LPA_MIN_DURATION_USEC_DEFAULT;
+                char minUserDefDuration[PROPERTY_VALUE_MAX];
                 property_get("lpa.decode",lpaDecode,"0");
+                property_get("lpa.min_duration",minUserDefDuration,"LPA_MIN_DURATION_USEC_DEFAULT");
+                minDurationForLPA = atoi(minUserDefDuration);
+                if(minDurationForLPA < LPA_MIN_DURATION_USEC_ALLOWED) {
+                    ALOGE("LPAPlayer::Clip duration setting of less than 30sec not supported, defaulting to 60sec");
+                    minDurationForLPA = LPA_MIN_DURATION_USEC_DEFAULT;
+                }
                 if((strcmp("true",lpaDecode) == 0) && (mAudioPlayer == NULL) &&
                    (tunnelObjectsAlive==0) && (nchannels && (nchannels <= 2)))
                 {
                     ALOGV("LPAPlayer::getObjectsAlive() %d",LPAPlayer::objectsAlive);
-                    if ( mDurationUs > 60000000
+                    if ( mDurationUs > minDurationForLPA
                          && (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG) || !strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_AAC))
                          && LPAPlayer::objectsAlive == 0 && mVideoSource == NULL) {
                         ALOGD("LPAPlayer created, LPA MODE detected mime %s duration %lld", mime, mDurationUs);
@@ -1536,14 +1546,22 @@ status_t AwesomePlayer::initAudioDecoder() {
         int64_t durationUs;
         uint32_t flags = 0;
         char lpaDecode[128];
+        uint32_t minDurationForLPA = LPA_MIN_DURATION_USEC_DEFAULT;
+        char minUserDefDuration[PROPERTY_VALUE_MAX];
         property_get("lpa.decode",lpaDecode,"0");
+        property_get("lpa.min_duration",minUserDefDuration,"LPA_MIN_DURATION_USEC_DEFAULT");
+        minDurationForLPA = atoi(minUserDefDuration);
+        if(minDurationForLPA < LPA_MIN_DURATION_USEC_ALLOWED) {
+            ALOGE("LPAPlayer::Clip duration setting of less than 30sec not supported, defaulting to 60sec");
+            minDurationForLPA = LPA_MIN_DURATION_USEC_DEFAULT;
+        }
         if (mAudioTrack->getFormat()->findInt64(kKeyDuration, &durationUs)) {
             Mutex::Autolock autoLock(mMiscStateLock);
             if (mDurationUs < 0 || durationUs > mDurationUs) {
                 mDurationUs = durationUs;
             }
         }
-        if ( mDurationUs > 60000000
+        if ( mDurationUs > minDurationForLPA
              && (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG) || !strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_AAC))
              && LPAPlayer::objectsAlive == 0 && mVideoSource == NULL && (strcmp("true",lpaDecode) == 0)
              && (nchannels && (nchannels <= 2)) ) {
