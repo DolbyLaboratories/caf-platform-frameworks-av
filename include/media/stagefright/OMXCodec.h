@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (c) 2010 - 2012, The Linux Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +23,7 @@
 #include <media/IOMX.h>
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MediaSource.h>
+#include <media/stagefright/QCOMXCodec.h>
 #include <utils/threads.h>
 
 #include <OMX_Audio.h>
@@ -127,6 +129,9 @@ private:
 
     // Make sure mLock is accessible to OMXCodecObserver
     friend class OMXCodecObserver;
+
+    // QCOMXCodec can access variables of OMXCodec
+    friend class QCOMXCodec;
 
     // Call this with mLock hold
     void on_message(const omx_message &msg);
