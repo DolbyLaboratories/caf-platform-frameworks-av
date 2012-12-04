@@ -31,6 +31,7 @@ LOCAL_SRC_FILES:=                         \
         MediaCodec.cpp                    \
         MediaCodecList.cpp                \
         MediaDefs.cpp                     \
+        QCMediaDefs.cpp                   \
         MediaExtractor.cpp                \
         MediaSource.cpp                   \
         MetaData.cpp                      \
@@ -64,6 +65,7 @@ LOCAL_C_INCLUDES:= \
         $(TOP)/external/flac/include \
         $(TOP)/external/tremolo \
         $(TOP)/external/openssl/include \
+        $(TOP)/hardware/qcom/media/mm-core/inc
 
 LOCAL_SHARED_LIBRARIES := \
         libbinder \
