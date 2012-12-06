@@ -53,6 +53,7 @@ LOCAL_SRC_FILES:=                         \
         Utils.cpp                         \
         VBRISeeker.cpp                    \
         WAVExtractor.cpp                  \
+        WAVEWriter.cpp                    \
         WVMExtractor.cpp                  \
         XINGSeeker.cpp                    \
         avc_utils.cpp                     \
@@ -130,6 +131,13 @@ LOCAL_CFLAGS += -Wno-multichar
 LOCAL_MODULE:= libstagefright
 
 LOCAL_MODULE_TAGS := optional
+
+
+ifeq ($(TARGET_ENABLE_QC_AV_ENHANCEMENTS),true)
+       LOCAL_CFLAGS += -DENABLE_AV_ENHANCEMENTS
+       LOCAL_SRC_FILES  += ExtendedWriter.cpp
+       LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media/mm-core/inc
+endif #TARGET_ENABLE_QC_AV_ENHANCEMENTS
 
 include $(BUILD_SHARED_LIBRARY)
 
