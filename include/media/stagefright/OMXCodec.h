@@ -103,6 +103,7 @@ struct OMXCodec : public MediaSource,
         kRequiresLargerEncoderOutputBuffer    = 2048,
         kOutputBuffersAreUnreadable           = 4096,
         kRequiresGlobalFlush                  = 0x20000000, // 2^29
+        kRequiresWMAProComponent              = 0x40000000, //2^30
     };
 
     struct CodecNameAndQuirks {
@@ -255,7 +256,9 @@ private:
             int32_t numChannels, int32_t sampleRate, int32_t bitRate,
             int32_t aacProfile, bool isADTS);
 
+    void setEVRCFormat( int32_t sampleRate, int32_t numChannels, int32_t bitRate);
     void setG711Format(int32_t numChannels);
+    void setQCELPFormat( int32_t sampleRate, int32_t numChannels, int32_t bitRate);
 
     status_t setVideoPortFormatType(
             OMX_U32 portIndex,
@@ -365,6 +368,9 @@ private:
 
     OMXCodec(const OMXCodec &);
     OMXCodec &operator=(const OMXCodec &);
+    status_t setWMAFormat(const sp<MetaData> &inputFormat);
+    void setAC3Format(int32_t numChannels, int32_t sampleRate);
+
 };
 
 struct CodecCapabilities {
