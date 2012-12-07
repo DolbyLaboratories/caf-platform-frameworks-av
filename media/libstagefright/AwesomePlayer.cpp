@@ -44,6 +44,7 @@
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/timedtext/TimedTextDriver.h>
 #include <media/stagefright/AudioPlayer.h>
+#include <media/stagefright/LPAPlayer.h>
 #ifdef USE_TUNNEL_MODE
 #include <media/stagefright/TunnelPlayer.h>
 #endif
@@ -923,12 +924,14 @@ status_t AwesomePlayer::play_l() {
 #ifdef USE_TUNNEL_MODE
                 // Create tunnel player if tunnel mode is enabled
                 ALOGW("Trying to create tunnel player mIsTunnelAudio %d, \
+                        LPAPlayer::objectsAlive %d, \
                         TunnelPlayer::mTunnelObjectsAlive = %d,\
                         (mAudioPlayer == NULL) %d",
                         mIsTunnelAudio, TunnelPlayer::mTunnelObjectsAlive,
-                        (mAudioPlayer == NULL));
+                        LPAPlayer::objectsAlive,(mAudioPlayer == NULL));
 
                 if(mIsTunnelAudio && (mAudioPlayer == NULL) &&
+                        (LPAPlayer::objectsAlive == 0) &&
                         (TunnelPlayer::mTunnelObjectsAlive == 0)) {
                     ALOGD("Tunnel player created for  mime %s duration %lld\n",\
                         mime, mDurationUs);
@@ -951,6 +954,23 @@ status_t AwesomePlayer::play_l() {
                 }
                 tunnelObjectsAlive = (TunnelPlayer::mTunnelObjectsAlive);
 #endif
+                char lpaDecode[128];
+                property_get("lpa.decode",lpaDecode,"0");
+                if((strcmp("true",lpaDecode) == 0) && (mAudioPlayer == NULL) && tunnelObjectsAlive==0 )
+                {
+                    ALOGV("LPAPlayer::getObjectsAlive() %d",LPAPlayer::objectsAlive);
+                    if ( mDurationUs > 60000000
+                         && (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG) || !strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_AAC))
+                         && LPAPlayer::objectsAlive == 0 && mVideoSource == NULL) {
+                        ALOGD("LPAPlayer created, LPA MODE detected mime %s duration %lld", mime, mDurationUs);
+                        bool initCheck =  false;
+                        mAudioPlayer = new LPAPlayer(mAudioSink, initCheck, this);
+                        if(!initCheck) {
+                             delete mAudioPlayer;
+                             mAudioPlayer = NULL;
+                        }
+                    }
+                }
                 if(mAudioPlayer == NULL) {
                     ALOGV("AudioPlayer created, Non-LPA mode mime %s duration %lld\n", mime, mDurationUs);
                     mAudioPlayer = new AudioPlayer(mAudioSink, allowDeepBuffering, this);
@@ -1485,10 +1505,43 @@ status_t AwesomePlayer::initAudioDecoder() {
         }
         mAudioSource = mAudioTrack;
     } else {
+        // For LPA Playback use the decoder without OMX layer
+        char *matchComponentName = NULL;
+        int64_t durationUs;
+        uint32_t flags = 0;
+        char lpaDecode[128];
+        property_get("lpa.decode",lpaDecode,"0");
+        if (mAudioTrack->getFormat()->findInt64(kKeyDuration, &durationUs)) {
+            Mutex::Autolock autoLock(mMiscStateLock);
+            if (mDurationUs < 0 || durationUs > mDurationUs) {
+                mDurationUs = durationUs;
+            }
+        }
+        if ( mDurationUs > 60000000
+             && (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG) || !strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_AAC))
+             && LPAPlayer::objectsAlive == 0 && mVideoSource == NULL && (strcmp("true",lpaDecode) == 0)) {
+            char nonOMXDecoder[128];
+            if(!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) {
+                ALOGD("matchComponentName is set to MP3Decoder %lld, mime %s",mDurationUs,mime);
+                property_get("use.non-omx.mp3.decoder",nonOMXDecoder,"0");
+                if((strcmp("true",nonOMXDecoder) == 0)) {
+                    matchComponentName = (char *) "MP3Decoder";
+                }
+            } else if((!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC))) {
+                ALOGD("matchComponentName is set to AACDecoder %lld, mime %s",mDurationUs,mime);
+                property_get("use.non-omx.aac.decoder",nonOMXDecoder,"0");
+                if((strcmp("true",nonOMXDecoder) == 0)) {
+                    matchComponentName = (char *) "AACDecoder";
+                } else {
+                    matchComponentName = (char *) "OMX.google.aac.decoder";
+                }
+            }
+            flags |= OMXCodec::kSoftwareCodecsOnly;
+        }
         mAudioSource = OMXCodec::Create(
                 mClient.interface(), mAudioTrack->getFormat(),
                 false, // createEncoder
-                mAudioTrack);
+                mAudioTrack, matchComponentName, flags,NULL);
     }
 
     if (mAudioSource != NULL) {

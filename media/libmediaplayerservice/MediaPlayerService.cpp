@@ -1,5 +1,9 @@
 /*
 **
+** Copyright (c) 2012, The Linux Foundation. All rights reserved.
+** Not a Contribution, Apache license notifications and license are retained
+** for attribution purposes only.
+**
 ** Copyright 2008, The Android Open Source Project
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -1394,7 +1398,7 @@ status_t MediaPlayerService::AudioOutput::open(
     mCallback = cb;
     mCallbackCookie = cookie;
 
-    if (flags & AUDIO_OUTPUT_FLAG_TUNNEL) {
+    if (flags & AUDIO_OUTPUT_FLAG_LPA || flags & AUDIO_OUTPUT_FLAG_TUNNEL) {
         ALOGV("AudioOutput open: with flags %x",flags);
         channelMask = audio_channel_out_mask_from_count(channelCount);
         if (0 == channelMask) {

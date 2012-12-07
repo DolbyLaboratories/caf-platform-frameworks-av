@@ -57,6 +57,7 @@
 #include "AudioWatchdog.h"
 
 #include <powermanager/IPowerManager.h>
+#include <utils/List.h>
 
 namespace android {
 
@@ -113,6 +114,7 @@ public:
                                 IDirectTrackClient* client,
                                 audio_stream_type_t streamType,
                                 status_t *status);
+    virtual void deleteEffectSession();
     virtual sp<IAudioRecord> openRecord(
                                 pid_t pid,
                                 audio_io_handle_t input,
@@ -154,7 +156,7 @@ public:
     virtual     String8     getParameters(audio_io_handle_t ioHandle, const String8& keys) const;
 
     virtual     void        registerClient(const sp<IAudioFlingerClient>& client);
-
+    virtual status_t deregisterClient(const sp<IAudioFlingerClient>& client);
     virtual     size_t      getInputBufferSize(uint32_t sampleRate, audio_format_t format,
                                                audio_channel_mask_t channelMask) const;
 
@@ -228,6 +230,11 @@ public:
                                 const Parcel& data,
                                 Parcel* reply,
                                 uint32_t flags);
+
+    void applyEffectsOn(void *token,
+                        int16_t *buffer1,
+                        int16_t *buffer2,
+                        int size);
 
     // end of IAudioFlinger interface
 
@@ -327,7 +334,7 @@ private:
     public:
                             NotificationClient(const sp<AudioFlinger>& audioFlinger,
                                                 const sp<IAudioFlingerClient>& client,
-                                                pid_t pid);
+                                                sp<IBinder> binder);
         virtual             ~NotificationClient();
 
                 sp<IAudioFlingerClient> audioFlingerClient() const { return mAudioFlingerClient; }
@@ -340,7 +347,7 @@ private:
                             NotificationClient& operator = (const NotificationClient&);
 
         const sp<AudioFlinger>  mAudioFlinger;
-        const pid_t             mPid;
+        sp<IBinder>             mBinder;
         const sp<IAudioFlingerClient> mAudioFlingerClient;
     };
 
@@ -584,6 +591,7 @@ private:
         virtual     status_t    setParameters(const String8& keyValuePairs);
         virtual     String8     getParameters(const String8& keys) = 0;
         virtual     void        audioConfigChanged_l(int event, int param = 0) = 0;
+                    void        effectConfigChanged();
                     void        sendIoConfigEvent(int event, int param = 0);
                     void        sendIoConfigEvent_l(int event, int param = 0);
                     void        sendPrioConfigEvent_l(pid_t pid, pid_t tid, int32_t prio);
@@ -1420,7 +1428,7 @@ private:
     public:
                             DirectAudioTrack(const sp<AudioFlinger>& audioFlinger,
                                              int output, AudioSessionDescriptor *outputDesc,
-                                             IDirectTrackClient* client);
+                                             IDirectTrackClient* client, audio_output_flags_t outflag);
         virtual             ~DirectAudioTrack();
         virtual status_t    start();
         virtual void        stop();
@@ -1440,8 +1448,58 @@ private:
         AudioSessionDescriptor *mOutputDesc;
         int  mOutput;
         bool mIsPaused;
+        audio_output_flags_t mFlag;
+
+        class BufferInfo {
+        public:
+            BufferInfo(void *buf1, void *buf2, int32_t nSize) :
+            localBuf(buf1), dspBuf(buf2), memBufsize(nSize)
+            {}
+
+            void *localBuf;
+            void *dspBuf;
+            uint32_t memBufsize;
+            uint32_t bytesToWrite;
+        };
+        List<BufferInfo> mBufPool;
+        List<BufferInfo> mEffectsPool;
+
+        void allocateBufPool();
+        void deallocateBufPool();
+
+        //******Effects*************
+        static void *EffectsThreadWrapper(void *me);
+        void EffectsThreadEntry();
+        // make sure the Effects thread also exited
+        void requestAndWaitForEffectsThreadExit();
+        void createEffectThread();
+        Condition mEffectCv;
+        Mutex mEffectLock;
+        pthread_t mEffectsThread;
+        bool mKillEffectsThread;
+        bool mEffectsThreadAlive;
+        bool mEffectConfigChanged;
+
+        //Structure to recieve the Effect notification from the flinger.
+        class AudioFlingerDirectTrackClient: public IBinder::DeathRecipient, public BnAudioFlingerClient {
+        public:
+            AudioFlingerDirectTrackClient(void *obj);
+
+            DirectAudioTrack *pBaseClass;
+            // DeathRecipient
+            virtual void binderDied(const wp<IBinder>& who);
+
+            // IAudioFlingerClient
+
+            // indicate a change in the configuration of an output or input: keeps the cached
+            // values for output/input parameters upto date in client process
+            virtual void ioConfigChanged(int event, audio_io_handle_t ioHandle, const void *param2);
+
+            friend class DirectAudioTrack;
+        };
         // helper function to obtain AudioFlinger service handle
         sp<AudioFlinger> mAudioFlinger;
+        sp<AudioFlingerDirectTrackClient> mAudioFlingerClient;
 
 	void clearPowerManager();
         class PMDeathRecipient : public IBinder::DeathRecipient {
@@ -1494,7 +1552,7 @@ private:
     };
 
                 void        removeClient_l(pid_t pid);
-                void        removeNotificationClient(pid_t pid);
+                void        removeNotificationClient(sp<IBinder> binder);
 
 
     // record thread
@@ -1706,7 +1764,10 @@ private:
                          void *pReplyData);
 
         void reset_l();
-        status_t configure();
+        status_t configure(bool isForLPA = false,
+                           int sampleRate = 0,
+                           int channelCount = 0,
+                           int frameCount = 0);
         status_t init();
         effect_state state() const {
             return mState;
@@ -1753,6 +1814,8 @@ private:
         bool             purgeHandles();
         void             lock() { mLock.lock(); }
         void             unlock() { mLock.unlock(); }
+        bool             isOnLPA() { return mIsForLPA;}
+        void             setLPAFlag(bool isForLPA) {mIsForLPA = isForLPA; }
 
         void             dump(int fd, const Vector<String16>& args);
 
@@ -1785,6 +1848,7 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
                                         // sending disable command.
         uint32_t mDisableWaitCnt;       // current process() calls count during disable period.
         bool     mSuspended;            // effect is suspended: temporarily disabled by framework
+        bool     mIsForLPA;
     };
 
     // The EffectHandle class implements the IEffect interface. It provides resources
@@ -1893,12 +1957,14 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
 
         status_t addEffect_l(const sp<EffectModule>& handle);
         size_t removeEffect_l(const sp<EffectModule>& handle);
+        size_t getNumEffects() { return mEffects.size(); }
 
         int sessionId() const { return mSessionId; }
         void setSessionId(int sessionId) { mSessionId = sessionId; }
 
         sp<EffectModule> getEffectFromDesc_l(effect_descriptor_t *descriptor);
         sp<EffectModule> getEffectFromId_l(int id);
+        sp<EffectModule> getEffectFromIndex_l(int idx);
         sp<EffectModule> getEffectFromType_l(const effect_uuid_t *type);
         bool setVolume_l(uint32_t *left, uint32_t *right);
         void setDevice_l(audio_devices_t device);
@@ -1944,6 +2010,8 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
         void clearInputBuffer();
 
         void dump(int fd, const Vector<String16>& args);
+        bool isForLPATrack() {return mIsForLPATrack; }
+        void setLPAFlag(bool flag) {mIsForLPATrack = flag;}
 
     protected:
         friend class AudioFlinger;  // for mThread, mEffects
@@ -1992,6 +2060,7 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
         uint32_t mNewLeftVolume;       // new volume on left channel
         uint32_t mNewRightVolume;      // new volume on right channel
         uint32_t mStrategy; // strategy for this effect chain
+        bool     mIsForLPATrack;
         // mSuspendedEffects lists all effects currently suspended in the chain.
         // Use effect type UUID timelow field as key. There is no real risk of identical
         // timeLow fields among effect type UUIDs.
@@ -2060,8 +2129,11 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
         float   mVolumeRight;
         audio_hw_device_t   *hwDev;
         audio_stream_out_t  *stream;
-        AudioSessionDescriptor(audio_hw_device_t *dev, audio_stream_out_t *out) :
-            hwDev(dev), stream(out)  {}
+        audio_output_flags_t flag;
+        void *trackRefPtr;
+        audio_devices_t device;
+        AudioSessionDescriptor(audio_hw_device_t *dev, audio_stream_out_t *out, audio_output_flags_t outflag) :
+            hwDev(dev), stream(out), flag(outflag)  {}
     };
 
     // for mAudioSessionRefs only
@@ -2123,13 +2195,19 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
 
                 DefaultKeyedVector< audio_io_handle_t, sp<RecordThread> >    mRecordThreads;
 
-                DefaultKeyedVector< pid_t, sp<NotificationClient> >    mNotificationClients;
+                DefaultKeyedVector< sp<IBinder>, sp<NotificationClient> >    mNotificationClients;
                 volatile int32_t                    mNextUniqueId;  // updated by android_atomic_inc
                 audio_mode_t                        mMode;
                 bool                                mBtNrecIsOff;
                 DefaultKeyedVector<audio_io_handle_t, AudioSessionDescriptor *> mDirectAudioTracks;
                 // protected by mLock
+                volatile bool                       mIsEffectConfigChanged;
                 Vector<AudioSessionRef*> mAudioSessionRefs;
+                sp<EffectChain> mLPAEffectChain;
+                int         mLPASessionId;
+                int                                 mLPASampleRate;
+                int                                 mLPANumChannels;
+                volatile bool                       mAllChainsLocked;
                 float       masterVolume_l() const;
                 bool        masterMute_l() const;
                 audio_module_handle_t loadHwModule_l(const char *name);
