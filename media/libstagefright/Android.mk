@@ -17,6 +17,7 @@ LOCAL_SRC_FILES:=                         \
         DataSource.cpp                    \
         DRMExtractor.cpp                  \
         ESDS.cpp                          \
+        ExtendedWriter.cpp                \
         FileSource.cpp                    \
         FLACExtractor.cpp                 \
         FragmentedMP4Extractor.cpp        \
@@ -53,6 +54,7 @@ LOCAL_SRC_FILES:=                         \
         Utils.cpp                         \
         VBRISeeker.cpp                    \
         WAVExtractor.cpp                  \
+        WAVEWriter.cpp                    \
         WVMExtractor.cpp                  \
         XINGSeeker.cpp                    \
         avc_utils.cpp                     \
