@@ -248,6 +248,10 @@ uint32_t OMXCodec::getComponentQuirks(
                 index, "output-buffers-are-unreadable")) {
         quirks |= kOutputBuffersAreUnreadable;
     }
+    if (list->codecHasQuirk(
+                index, "requires-global-flush")) {
+        quirks |= kRequiresGlobalFlush;
+    }
 
     return quirks;
 }
@@ -2543,11 +2547,18 @@ void OMXCodec::onCmdComplete(OMX_COMMANDTYPE cmd, OMX_U32 data) {
 
             CODEC_LOGV("FLUSH_DONE(%ld)", portIndex);
 
-            CHECK_EQ((int)mPortStatus[portIndex], (int)SHUTTING_DOWN);
-            mPortStatus[portIndex] = ENABLED;
+            if (portIndex == (OMX_U32) -1) {
+                CHECK_EQ((int)mPortStatus[kPortIndexInput], (int)SHUTTING_DOWN);
+                mPortStatus[kPortIndexInput] = ENABLED;
+                CHECK_EQ((int)mPortStatus[kPortIndexOutput], (int)SHUTTING_DOWN);
+                mPortStatus[kPortIndexOutput] = ENABLED;
+            } else {
+                CHECK_EQ((int)mPortStatus[portIndex], (int)SHUTTING_DOWN);
+                mPortStatus[portIndex] = ENABLED;
 
-            CHECK_EQ(countBuffersWeOwn(mPortBuffers[portIndex]),
-                     mPortBuffers[portIndex].size());
+                CHECK_EQ(countBuffersWeOwn(mPortBuffers[portIndex]),
+                         mPortBuffers[portIndex].size());
+            }
 
             if (mSkipCutBuffer != NULL && mPortStatus[kPortIndexOutput] == ENABLED) {
                 mSkipCutBuffer->clear();
@@ -2812,20 +2823,25 @@ bool OMXCodec::flushPortAsync(OMX_U32 portIndex) {
     CHECK(mState == EXECUTING || mState == RECONFIGURING
             || mState == EXECUTING_TO_IDLE);
 
-    CODEC_LOGV("flushPortAsync(%ld): we own %d out of %d buffers already.",
-         portIndex, countBuffersWeOwn(mPortBuffers[portIndex]),
-         mPortBuffers[portIndex].size());
+    if (portIndex == (OMX_U32) -1 ) {
+        mPortStatus[kPortIndexInput] = SHUTTING_DOWN;
+        mPortStatus[kPortIndexOutput] = SHUTTING_DOWN;
+    } else {
+        CODEC_LOGV("flushPortAsync(%ld): we own %d out of %d buffers already.",
+             portIndex, countBuffersWeOwn(mPortBuffers[portIndex]),
+             mPortBuffers[portIndex].size());
 
-    CHECK_EQ((int)mPortStatus[portIndex], (int)ENABLED);
-    mPortStatus[portIndex] = SHUTTING_DOWN;
+        CHECK_EQ((int)mPortStatus[portIndex], (int)ENABLED);
+        mPortStatus[portIndex] = SHUTTING_DOWN;
 
-    if ((mQuirks & kRequiresFlushCompleteEmulation)
-        && countBuffersWeOwn(mPortBuffers[portIndex])
-                == mPortBuffers[portIndex].size()) {
-        // No flush is necessary and this component fails to send a
-        // flush-complete event in this case.
+        if ((mQuirks & kRequiresFlushCompleteEmulation)
+            && countBuffersWeOwn(mPortBuffers[portIndex])
+                    == mPortBuffers[portIndex].size()) {
+            // No flush is necessary and this component fails to send a
+            // flush-complete event in this case.
 
-        return false;
+           return false;
+        }
     }
 
     status_t err =
@@ -3726,18 +3742,27 @@ status_t OMXCodec::stopOmxComponent_l() {
                 CODEC_LOGV("This component requires a flush before transitioning "
                      "from EXECUTING to IDLE...");
 
-                bool emulateInputFlushCompletion =
-                    !flushPortAsync(kPortIndexInput);
+                //DSP supports flushing of ports simultaneously.
+                //Flushing individual port is not supported.
+                if(mQuirks & kRequiresGlobalFlush) {
+                    bool emulateFlushCompletion = !flushPortAsync(kPortIndexBoth);
+                    if (emulateFlushCompletion) {
+                        onCmdComplete(OMX_CommandFlush, kPortIndexBoth);
+                    }
+                } else {
+                    bool emulateInputFlushCompletion =
+                        !flushPortAsync(kPortIndexInput);
 
-                bool emulateOutputFlushCompletion =
-                    !flushPortAsync(kPortIndexOutput);
+                    bool emulateOutputFlushCompletion =
+                        !flushPortAsync(kPortIndexOutput);
 
-                if (emulateInputFlushCompletion) {
-                    onCmdComplete(OMX_CommandFlush, kPortIndexInput);
-                }
+                    if (emulateInputFlushCompletion) {
+                        onCmdComplete(OMX_CommandFlush, kPortIndexInput);
+                    }
 
-                if (emulateOutputFlushCompletion) {
-                    onCmdComplete(OMX_CommandFlush, kPortIndexOutput);
+                    if (emulateOutputFlushCompletion) {
+                        onCmdComplete(OMX_CommandFlush, kPortIndexOutput);
+                    }
                 }
             } else {
                 mPortStatus[kPortIndexInput] = SHUTTING_DOWN;
@@ -3846,15 +3871,24 @@ status_t OMXCodec::read(
 
         CHECK_EQ((int)mState, (int)EXECUTING);
 
-        bool emulateInputFlushCompletion = !flushPortAsync(kPortIndexInput);
-        bool emulateOutputFlushCompletion = !flushPortAsync(kPortIndexOutput);
+        //DSP supports flushing of ports simultaneously.
+        //Flushing individual port is not supported.
+        if(mQuirks & kRequiresGlobalFlush) {
+            bool emulateFlushCompletion = !flushPortAsync(kPortIndexBoth);
+            if (emulateFlushCompletion) {
+                onCmdComplete(OMX_CommandFlush, kPortIndexBoth);
+            }
+        } else {
+            bool emulateInputFlushCompletion = !flushPortAsync(kPortIndexInput);
+            bool emulateOutputFlushCompletion = !flushPortAsync(kPortIndexOutput);
 
-        if (emulateInputFlushCompletion) {
-            onCmdComplete(OMX_CommandFlush, kPortIndexInput);
-        }
+            if (emulateInputFlushCompletion) {
+                onCmdComplete(OMX_CommandFlush, kPortIndexInput);
+            }
 
-        if (emulateOutputFlushCompletion) {
-            onCmdComplete(OMX_CommandFlush, kPortIndexOutput);
+            if (emulateOutputFlushCompletion) {
+                onCmdComplete(OMX_CommandFlush, kPortIndexOutput);
+            }
         }
 
         while (mSeekTimeUs >= 0) {
