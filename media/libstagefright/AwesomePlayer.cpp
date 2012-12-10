@@ -2,6 +2,10 @@
  * Copyright (C) 2009 The Android Open Source Project
  * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Not a Contribution, Apache license notifications and license are retained
+ * for attribution purposes only.
+
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -40,6 +44,9 @@
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/timedtext/TimedTextDriver.h>
 #include <media/stagefright/AudioPlayer.h>
+#ifdef USE_TUNNEL_MODE
+#include <media/stagefright/TunnelPlayer.h>
+#endif
 #include <media/stagefright/DataSource.h>
 #include <media/stagefright/FileSource.h>
 #include <media/stagefright/MediaBuffer.h>
@@ -65,6 +72,7 @@ static int64_t kLowWaterMarkUs = 2000000ll;  // 2secs
 static int64_t kHighWaterMarkUs = 5000000ll;  // 5secs
 static const size_t kLowWaterMarkBytes = 40000;
 static const size_t kHighWaterMarkBytes = 200000;
+int AwesomePlayer::mTunnelAliveAP = 0;
 
 struct AwesomeEvent : public TimedEventQueue::Event {
     AwesomeEvent(
@@ -215,6 +223,7 @@ AwesomePlayer::AwesomePlayer()
     mAudioStatusEventPending = false;
 
     reset();
+    mIsTunnelAudio = false;
 }
 
 AwesomePlayer::~AwesomePlayer() {
@@ -223,6 +232,15 @@ AwesomePlayer::~AwesomePlayer() {
     }
 
     reset();
+
+    // Disable Tunnel Mode Audio
+    if (mIsTunnelAudio) {
+        if(mTunnelAliveAP > 0) {
+            mTunnelAliveAP--;
+            ALOGV("mTunnelAliveAP = %d", mTunnelAliveAP);
+        }
+    }
+    mIsTunnelAudio = false;
 
     mClient.disconnect();
 }
@@ -858,6 +876,7 @@ status_t AwesomePlayer::play() {
 }
 
 status_t AwesomePlayer::play_l() {
+    int tunnelObjectsAlive = 0;
     modifyFlags(SEEK_PREVIEW, CLEAR);
 
     if (mFlags & PLAYING) {
@@ -885,6 +904,11 @@ status_t AwesomePlayer::play_l() {
     if (mAudioSource != NULL) {
         if (mAudioPlayer == NULL) {
             if (mAudioSink != NULL) {
+                sp<MetaData> format = mAudioTrack->getFormat();
+                const char *mime;
+                bool success = format->findCString(kKeyMIMEType, &mime);
+                CHECK(success);
+
                 bool allowDeepBuffering;
                 int64_t cachedDurationUs;
                 bool eos;
@@ -896,8 +920,41 @@ status_t AwesomePlayer::play_l() {
                 } else {
                     allowDeepBuffering = false;
                 }
+#ifdef USE_TUNNEL_MODE
+                // Create tunnel player if tunnel mode is enabled
+                ALOGW("Trying to create tunnel player mIsTunnelAudio %d, \
+                        TunnelPlayer::mTunnelObjectsAlive = %d,\
+                        (mAudioPlayer == NULL) %d",
+                        mIsTunnelAudio, TunnelPlayer::mTunnelObjectsAlive,
+                        (mAudioPlayer == NULL));
 
-                mAudioPlayer = new AudioPlayer(mAudioSink, allowDeepBuffering, this);
+                if(mIsTunnelAudio && (mAudioPlayer == NULL) &&
+                        (TunnelPlayer::mTunnelObjectsAlive == 0)) {
+                    ALOGD("Tunnel player created for  mime %s duration %lld\n",\
+                        mime, mDurationUs);
+                    bool initCheck =  false;
+                    if(mVideoSource != NULL) {
+                        // The parameter true is to inform tunnel player that
+                        // clip is audio video
+                        mAudioPlayer = new TunnelPlayer(mAudioSink, initCheck,
+                                this, true);
+                    }
+                    else {
+                        mAudioPlayer = new TunnelPlayer(mAudioSink, initCheck,
+                                this);
+                    }
+                    if(!initCheck) {
+                        ALOGE("deleting Tunnel Player - initCheck failed");
+                        delete mAudioPlayer;
+                        mAudioPlayer = NULL;
+                    }
+                }
+                tunnelObjectsAlive = (TunnelPlayer::mTunnelObjectsAlive);
+#endif
+                if(mAudioPlayer == NULL) {
+                    ALOGV("AudioPlayer created, Non-LPA mode mime %s duration %lld\n", mime, mDurationUs);
+                    mAudioPlayer = new AudioPlayer(mAudioSink, allowDeepBuffering, this);
+                }
                 mAudioPlayer->setSource(mAudioSource);
 
                 mTimeSource = mAudioPlayer;
@@ -915,9 +972,12 @@ status_t AwesomePlayer::play_l() {
         if (mVideoSource == NULL) {
             // We don't want to post an error notification at this point,
             // the error returned from MediaPlayer::start() will suffice.
-
-            status_t err = startAudioPlayer_l(
-                    false /* sendErrorNotification */);
+            bool sendErrorNotification = false;
+            if(mIsTunnelAudio) {
+                // For tunnel Audio error has to be posted to the client
+                sendErrorNotification = true;
+            }
+            status_t err = startAudioPlayer_l(sendErrorNotification);
 
             if (err != OK) {
                 delete mAudioPlayer;
@@ -1387,8 +1447,42 @@ status_t AwesomePlayer::initAudioDecoder() {
 
     const char *mime;
     CHECK(meta->findCString(kKeyMIMEType, &mime));
+#ifdef USE_TUNNEL_MODE
+    char value[PROPERTY_VALUE_MAX];
+    char tunnelDecode[128];
+    property_get("tunnel.decode",tunnelDecode,"0");
+    // Enable tunnel mode for mp3 and aac and if the clip is not aac adif
+    // and if no other tunnel mode instances aare running.
+    ALOGD("Tunnel Mime Type: %s, object alive = %d, mTunnelAliveAP = %d",\
+            mime, (TunnelPlayer::mTunnelObjectsAlive), mTunnelAliveAP);
+    if(((strcmp("true",tunnelDecode) == 0)||(atoi(tunnelDecode))) &&
+            (TunnelPlayer::mTunnelObjectsAlive == 0) &&
+            mTunnelAliveAP == 0 &&
+            ((!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) ||
+            (!strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_AAC)))) {
 
-    if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_RAW)) {
+        if(mVideoSource != NULL) {
+           char tunnelAVDecode[128];
+           property_get("tunnel.audiovideo.decode",tunnelAVDecode,"0");
+           if(((strncmp("true", tunnelAVDecode, 4) == 0)||(atoi(tunnelAVDecode)))) {
+               ALOGD("Enable Tunnel Mode for A-V playback");
+               mIsTunnelAudio = true;
+           }
+        }
+        else {
+            ALOGI("Tunnel Mode Audio Enabled");
+            mIsTunnelAudio = true;
+        }
+    }
+    else
+       ALOGD("Normal Audio Playback");
+#endif
+    if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_RAW) ||
+             (mIsTunnelAudio && (mTunnelAliveAP == 0))) {
+        ALOGD("Set Audio Track as Audio Source");
+        if(mIsTunnelAudio) {
+            mTunnelAliveAP++;
+        }
         mAudioSource = mAudioTrack;
     } else {
         mAudioSource = OMXCodec::Create(
