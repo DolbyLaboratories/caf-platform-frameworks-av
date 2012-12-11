@@ -99,7 +99,9 @@ AudioTrack::AudioTrack()
     : mStatus(NO_INIT),
       mIsTimed(false),
       mPreviousPriority(ANDROID_PRIORITY_NORMAL),
-      mPreviousSchedulingGroup(SP_DEFAULT)
+      mPreviousSchedulingGroup(SP_DEFAULT),
+      mAudioFlinger(NULL),
+      mObserver(NULL)
 {
 }
 
@@ -297,7 +299,7 @@ status_t AudioTrack::set(
     mFlags = flags;
     mCbf = cbf;
 
-    if (flags & AUDIO_OUTPUT_FLAG_TUNNEL) {
+    if (flags & AUDIO_OUTPUT_FLAG_LPA || flags & AUDIO_OUTPUT_FLAG_TUNNEL) {
         ALOGV("Creating Direct Track");
         const sp<IAudioFlinger>& audioFlinger = AudioSystem::get_audio_flinger();
         if (audioFlinger == 0) {
@@ -1163,9 +1165,6 @@ void AudioTrack::releaseBuffer(Buffer* audioBuffer)
 ssize_t AudioTrack::write(const void* buffer, size_t userSize)
 {
     if (mDirectTrack != NULL) {
-        if (!mActive) {
-            mActive = true;
-        }
         mDirectTrack->write(buffer,userSize);
         return userSize;
     }
