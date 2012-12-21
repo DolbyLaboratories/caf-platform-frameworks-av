@@ -313,10 +313,10 @@ status_t TunnelPlayer::start(bool sourceAlreadyStarted) {
         mFormat = AUDIO_FORMAT_AMR_WB;
         ALOGV("TunnelPlayer::start AUDIO_FORMAT_AMR_WB");
     }
-//    if (!strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS)) {
-//        mFormat = AUDIO_FORMAT_AMR_WB_PLUS;
-//        ALOGV("TunnelPlayer::start AUDIO_FORMAT_AMR_WB_PLUS");
-//    }
+    if (!strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS)) {
+        mFormat = AUDIO_FORMAT_AMR_WB_PLUS;
+        ALOGV("TunnelPlayer::start AUDIO_FORMAT_AMR_WB_PLUS");
+    }
 
     CHECK(success);
 
