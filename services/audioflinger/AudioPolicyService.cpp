@@ -1,5 +1,9 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * Not a Contribution, Apache license notifications and license are retained
+ * for attribution purposes only
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -723,6 +727,16 @@ bool AudioPolicyService::AudioCommandThread::threadLoop()
                     }
                     delete data;
                     }break;
+                case SET_FM_VOLUME: {
+                    FmVolumeData *data = (FmVolumeData *)command->mParam;
+                    ALOGV("AudioCommandThread() processing set fm volume volume %f", data->mVolume);
+                    command->mStatus = AudioSystem::setFmVolume(data->mVolume);
+                    if (command->mWaitStatus) {
+                        command->mCond.signal();
+                        mWaitWorkCV.wait(mLock);
+                    }
+                    delete data;
+                    }break;
                 default:
                     ALOGW("AudioCommandThread() unknown command %d", command->mCommand);
                 }
@@ -878,6 +892,32 @@ status_t AudioPolicyService::AudioCommandThread::voiceVolumeCommand(float volume
     return status;
 }
 
+status_t AudioPolicyService::AudioCommandThread::fmVolumeCommand(float volume, int delayMs)
+{
+    status_t status = NO_ERROR;
+
+    AudioCommand *command = new AudioCommand();
+    command->mCommand = SET_FM_VOLUME;
+    FmVolumeData *data = new FmVolumeData();
+    data->mVolume = volume;
+    command->mParam = data;
+    if (delayMs == 0) {
+        command->mWaitStatus = true;
+    } else {
+        command->mWaitStatus = false;
+    }
+    Mutex::Autolock _l(mLock);
+    insertCommand_l(command, delayMs);
+    ALOGV("AudioCommandThread() adding set fm volume volume %f", volume);
+    mWaitWorkCV.signal();
+    if (command->mWaitStatus) {
+        command->mCond.wait(mLock);
+        status =  command->mStatus;
+        mWaitWorkCV.signal();
+    }
+    return status;
+}
+
 // insertCommand_l() must be called with mLock held
 void AudioPolicyService::AudioCommandThread::insertCommand_l(AudioCommand *command, int delayMs)
 {
@@ -940,6 +980,10 @@ void AudioPolicyService::AudioCommandThread::insertCommand_l(AudioCommand *comma
             if (data->mStream != data2->mStream) break;
             ALOGV("Filtering out volume command on output %d for stream %d",
                     data->mIO, data->mStream);
+            removedCommands.add(command2);
+            time = command2->mTime;
+        } break;
+        case SET_FM_VOLUME: {
             removedCommands.add(command2);
             time = command2->mTime;
         } break;
@@ -1017,6 +1061,11 @@ int AudioPolicyService::setStreamVolume(audio_stream_type_t stream,
 {
     return (int)mAudioCommandThread->volumeCommand(stream, volume,
                                                    output, delayMs);
+}
+
+status_t AudioPolicyService::setFmVolume(float volume, int delayMs)
+{
+    return mAudioCommandThread->fmVolumeCommand(volume, delayMs);
 }
 
 int AudioPolicyService::startTone(audio_policy_tone_t tone,
@@ -1539,6 +1588,13 @@ static int aps_set_voice_volume(void *service, float volume, int delay_ms)
     return audioPolicyService->setVoiceVolume(volume, delay_ms);
 }
 
+static int aps_set_fm_volume(void *service, float volume, int delay_ms)
+{
+    AudioPolicyService *audioPolicyService = (AudioPolicyService *)service;
+
+    return audioPolicyService->setFmVolume(volume, delay_ms);
+}
+
 }; // extern "C"
 
 namespace {
@@ -1558,6 +1614,7 @@ namespace {
         stop_tone             : aps_stop_tone,
         set_voice_volume      : aps_set_voice_volume,
         move_effects          : aps_move_effects,
+        set_fm_volume         : aps_set_fm_volume,
         load_hw_module        : aps_load_hw_module,
         open_output_on_module : aps_open_output_on_module,
         open_input_on_module  : aps_open_input_on_module,
