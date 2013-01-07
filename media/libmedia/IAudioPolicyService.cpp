@@ -1,6 +1,10 @@
 /*
 **
 ** Copyright 2009, The Android Open Source Project
+** Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+**
+** Not a Contribution, Apache license notifications and license are retained
+** for attribution purposes only.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -33,6 +37,7 @@ enum {
     SET_DEVICE_CONNECTION_STATE = IBinder::FIRST_CALL_TRANSACTION,
     GET_DEVICE_CONNECTION_STATE,
     SET_PHONE_STATE,
+    SET_INCALL_PHONE_STATE,
     SET_RINGER_MODE,    // reserved, no longer used
     SET_FORCE_USE,
     GET_FORCE_USE,
@@ -98,6 +103,15 @@ public:
         data.writeInterfaceToken(IAudioPolicyService::getInterfaceDescriptor());
         data.writeInt32(state);
         remote()->transact(SET_PHONE_STATE, data, &reply);
+        return static_cast <status_t> (reply.readInt32());
+    }
+
+    virtual status_t setInCallPhoneState(audio_mode_t state)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IAudioPolicyService::getInterfaceDescriptor());
+        data.writeInt32(state);
+        remote()->transact(SET_INCALL_PHONE_STATE, data, &reply);
         return static_cast <status_t> (reply.readInt32());
     }
 
@@ -400,6 +414,12 @@ status_t BnAudioPolicyService::onTransact(
         case SET_PHONE_STATE: {
             CHECK_INTERFACE(IAudioPolicyService, data, reply);
             reply->writeInt32(static_cast <uint32_t>(setPhoneState((audio_mode_t) data.readInt32())));
+            return NO_ERROR;
+        } break;
+
+        case SET_INCALL_PHONE_STATE: {
+            CHECK_INTERFACE(IAudioPolicyService, data, reply);
+            reply->writeInt32(static_cast <uint32_t>(setInCallPhoneState((audio_mode_t) data.readInt32())));
             return NO_ERROR;
         } break;
 
