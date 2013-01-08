@@ -1475,7 +1475,12 @@ status_t AwesomePlayer::initAudioDecoder() {
     const char *mime;
     CHECK(meta->findCString(kKeyMIMEType, &mime));
     int32_t nchannels = 0;
+    int32_t isADTS = 0;
     meta->findInt32( kKeyChannelCount, &nchannels );
+    meta->findInt32(kKeyIsADTS, &isADTS);
+    if(isADTS == 1){
+        ALOGV("Widevine content\n");
+    }
     ALOGV("nchannels %d;LPA will be skipped if nchannels is > 2 or nchannels == 0",
            nchannels);
 
@@ -1489,7 +1494,8 @@ status_t AwesomePlayer::initAudioDecoder() {
             mime, (TunnelPlayer::mTunnelObjectsAlive), mTunnelAliveAP);
     if(((strcmp("true",tunnelDecode) == 0)||(atoi(tunnelDecode))) &&
             (TunnelPlayer::mTunnelObjectsAlive == 0) &&
-            mTunnelAliveAP == 0 &&
+             //widevine will fallback to software decoder
+            mTunnelAliveAP == 0 && (isADTS == 0) &&
             ((!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) ||
             (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AMR_WB))       ||
             (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS))  ||
