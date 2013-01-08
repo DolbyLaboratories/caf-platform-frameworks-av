@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
  * Not a Contribution, Apache license notifications and license are retained
  * for attribution purposes only.
- *
- * Copyright (C) 2008 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,6 +120,7 @@ public:
         audio_channel_mask_t channelMask, size_t* buffSize);
 
     static status_t setVoiceVolume(float volume);
+    static status_t setFmVolume(float volume);
 
     // return the number of audio frames written by AudioFlinger to audio HAL and
     // audio dsp to DAC since the output on which the specified stream is playing

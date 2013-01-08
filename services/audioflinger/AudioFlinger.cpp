@@ -1,9 +1,8 @@
 /*
 **
 ** Copyright 2007, The Android Open Source Project
-** Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+** Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
 **
-** Copyright (c) 2012, The Linux Foundation. All rights reserved.
 ** Not a Contribution, Apache license notifications and license are retained
 ** for attribution purposes only.
 **
@@ -1326,6 +1325,27 @@ status_t AudioFlinger::getRenderPosition(uint32_t *halFrames, uint32_t *dspFrame
     }
 
     return BAD_VALUE;
+}
+
+status_t AudioFlinger::setFmVolume(float value)
+{
+    status_t ret = initCheck();
+    if (ret != NO_ERROR) {
+        return ret;
+    }
+
+    // check calling permissions
+    if (!settingsAllowed()) {
+        return PERMISSION_DENIED;
+    }
+
+    AutoMutex lock(mHardwareLock);
+    audio_hw_device_t *dev = mPrimaryHardwareDev->hwDevice();
+    mHardwareStatus = AUDIO_SET_FM_VOLUME;
+    ret = dev->set_fm_volume(dev, value);
+    mHardwareStatus = AUDIO_HW_IDLE;
+
+    return ret;
 }
 
 void AudioFlinger::registerClient(const sp<IAudioFlingerClient>& client)

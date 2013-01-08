@@ -1,7 +1,8 @@
 /*
 **
 ** Copyright 2007, The Android Open Source Project
-** Copyright (c) 2012, The Linux Foundation. All rights reserved.
+** Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+**
 ** Not a Contribution, Apache license notifications and license are retained
 ** for attribution purposes only.
 **
@@ -219,6 +220,8 @@ public:
 
     virtual status_t moveEffects(int sessionId, audio_io_handle_t srcOutput,
                         audio_io_handle_t dstOutput);
+
+    virtual status_t setFmVolume(float volume);
 
     virtual audio_module_handle_t loadHwModule(const char *name);
 
@@ -2175,6 +2178,7 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
         AUDIO_HW_SET_MIC_MUTE,          // set_mic_mute
         AUDIO_HW_SET_VOICE_VOLUME,      // set_voice_volume
         AUDIO_HW_SET_PARAMETER,         // set_parameters
+        AUDIO_SET_FM_VOLUME,
         AUDIO_HW_GET_INPUT_BUFFER_SIZE, // get_input_buffer_size
         AUDIO_HW_GET_MASTER_VOLUME,     // get_master_volume
         AUDIO_HW_GET_PARAMETER,         // get_parameters
