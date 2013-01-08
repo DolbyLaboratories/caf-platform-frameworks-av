@@ -424,17 +424,24 @@ size_t LPAPlayer::AudioSinkCallback(
 }
 
 void LPAPlayer::reset() {
+    ALOGD("Reset");
 
-    ALOGV("Reset");
+    Mutex::Autolock _l(mLock); //to sync w/ onpausetimeout
+
+    //cancel any pending onpause timeout events
+    //doesnt matter if the event is really present or not
+    mPauseEventPending = false;
+    mQueue.cancelEvent(mPauseEvent->eventID());
+
     // Close the audiosink after all the threads exited to make sure
     mReachedEOS = true;
 
     // make sure Decoder thread has exited
-    ALOGV("Closing all the threads");
+    ALOGD("Closing all the threads");
     requestAndWaitForDecoderThreadExit();
     requestAndWaitForA2DPNotificationThreadExit();
 
-    ALOGV("Close the Sink");
+    ALOGD("Close the Sink");
     if (mIsAudioRouted) {
 	    mAudioSink->stop();
         mAudioSink->close();
@@ -824,6 +831,7 @@ bool LPAPlayer::getMediaTimeMapping(
     return false;
 }
 
+//lock taken in reset()
 void LPAPlayer::requestAndWaitForDecoderThreadExit() {
 
     if (!decoderThreadAlive)
@@ -836,8 +844,10 @@ void LPAPlayer::requestAndWaitForDecoderThreadExit() {
         mAudioSink->flush();
 
     pthread_cond_signal(&decoder_cv);
+    mLock.unlock();
     pthread_join(decoderThread,NULL);
-    ALOGV("decoder thread killed");
+    mLock.lock();
+    ALOGD("decoder thread killed");
 
 }
 
