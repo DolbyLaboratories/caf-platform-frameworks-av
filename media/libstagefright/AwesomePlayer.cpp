@@ -1495,7 +1495,7 @@ status_t AwesomePlayer::initAudioDecoder() {
     if(((strcmp("true",tunnelDecode) == 0)||(atoi(tunnelDecode))) &&
             (TunnelPlayer::mTunnelObjectsAlive == 0) &&
              //widevine will fallback to software decoder
-            mTunnelAliveAP == 0 && (isADTS == 0) &&
+            mTunnelAliveAP == 0 && (isADTS == 0) && mAudioSink->realtime() &&
             ((!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) ||
             (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AMR_WB))       ||
             (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS))  ||
