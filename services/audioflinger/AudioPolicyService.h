@@ -63,6 +63,7 @@ public:
                                                                 audio_devices_t device,
                                                                 const char *device_address);
     virtual status_t setPhoneState(audio_mode_t state);
+    virtual status_t setInCallPhoneState(audio_mode_t state);
     virtual status_t setForceUse(audio_policy_force_use_t usage, audio_policy_forced_cfg_t config);
     virtual audio_policy_forced_cfg_t getForceUse(audio_policy_force_use_t usage);
     virtual audio_io_handle_t getOutput(audio_stream_type_t stream,
