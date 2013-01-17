@@ -1192,17 +1192,20 @@ status_t AudioFlinger::setParameters(audio_io_handle_t ioHandle, const String8& 
         if (desc != NULL) {
             ALOGV("setParameters for mAudioTracks size %d desc %p",mDirectAudioTracks.size(),desc);
             desc->stream->common.set_parameters(&desc->stream->common, keyValuePairs.string());
-#ifdef SRS_PROCESSING
             AudioParameter param = AudioParameter(keyValuePairs);
             String8 key = String8(AudioParameter::keyRouting);
             int device;
             if (param.getInt(key, device) == NO_ERROR) {
+#ifdef SRS_PROCESSING
                 ALOGV("setParameters:: routing change to device %d", device);
                 desc->device = (audio_devices_t)device;
                 POSTPRO_PATCH_ICS_OUTPROC_MIX_ROUTE(desc->trackRefPtr, param, device);
-            }
 #endif
-            return NO_ERROR;
+                if(mLPAEffectChain != NULL){
+                    mLPAEffectChain->setDevice_l(device);
+                    audioConfigChanged_l(AudioSystem::EFFECT_CONFIG_CHANGED, 0, NULL);
+                }
+            }
         }
     }
 
