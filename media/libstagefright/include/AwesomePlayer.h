@@ -362,6 +362,8 @@ private:
 
     size_t countTracks() const;
 
+    bool inSupportedTunnelFormats(const char * mime);
+
     //Flag to check if tunnel mode audio is enabled
     bool mIsTunnelAudio;
 
