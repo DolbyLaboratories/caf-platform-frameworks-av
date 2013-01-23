@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
- * Copyright (c) 2010 - 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010 - 2013, The Linux Foundation. All rights reserved.
  *
  * Not a Contribution, Apache license notifications and license are retained
  * for attribution purposes only.
@@ -529,6 +529,8 @@ status_t OMXCodec::configureCodec(const sp<MetaData> &meta) {
                 ALOGE("Malformed AVC codec specific data.");
                 return err;
             }
+
+            QCOMXCodec::checkIfInterlaced((const uint8_t *)data, meta);
 
             CODEC_LOGI(
                     "AVC profile = %u (%s), level = %u",
