@@ -376,7 +376,13 @@ status_t TunnelPlayer::seekTo(int64_t time_us) {
 
     ALOGV("seekTo: time_us %lld", time_us);
 
-    if (mPositionTimeRealUs != 0) {
+    //This can happen if the client calls seek
+    //without ever calling getPosition
+    if (mPositionTimeRealUs == -1) {
+        getOffsetRealTime_l(&mPositionTimeRealUs);
+    }
+
+    if (mPositionTimeRealUs > 0) {
       //check for return conditions only if seektime
       // is set
       if (time_us > mPositionTimeRealUs){
