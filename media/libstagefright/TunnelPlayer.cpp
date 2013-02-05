@@ -537,17 +537,10 @@ void TunnelPlayer::reset() {
         mInputBuffer = NULL;
     }
 
-    if(mStarted)
+    if (mStarted)
         mSource->stop();
 
-    // The following hack is necessary to ensure that the OMX
-    // component is completely released by the time we may try
-    // to instantiate it again.
-    wp<MediaSource> tmp = mSource;
     mSource.clear();
-    while (tmp.promote() != NULL) {
-        usleep(1000);
-    }
 
     mPositionTimeMediaUs = -1;
     mPositionTimeRealUs = -1;
