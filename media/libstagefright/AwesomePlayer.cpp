@@ -3072,10 +3072,24 @@ void AwesomePlayer::checkTunnelExceptions()
         return;
     }
 
+    CHECK(mAudioTrack != NULL);
+
+    /*
+     * exception 2: No AAC-LD content,
+     * hint given by setting kKeyTunnelException in the track meta
+     */
+    int32_t exception = 0;
+    if (mAudioTrack->getFormat()->findInt32(kKeyTunnelException, &exception) &&
+        exception) {
+        ALOGV("kKeyTunnelException set, disable tunnel mode");
+        mIsTunnelAudio = false;
+        return;
+    }
+
     /* below exceptions are only for av content */
     if (mVideoTrack == NULL) return;
 
-    /* exception 2: No avi having video + mp3 */
+    /* exception 3: No avi having video + mp3 */
     if (mExtractor == NULL) return;
 
     sp<MetaData> metaData = mExtractor->getMetaData();
@@ -3086,8 +3100,6 @@ void AwesomePlayer::checkTunnelExceptions()
         strcmp(container, MEDIA_MIMETYPE_CONTAINER_AVI)) {
         return;
     }
-
-    CHECK(mAudioTrack != NULL);
 
     const char * mime;
     metaData = mAudioTrack->getFormat();
