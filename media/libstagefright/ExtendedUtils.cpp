@@ -513,6 +513,29 @@ bool ExtendedUtils::checkIsThumbNailMode(const uint32_t flags, char* componentNa
     return isInThumbnailMode;
 }
 
+
+void ExtendedUtils::helper_Mpeg4ExtractorCheckAC3EAC3(MediaBuffer *buffer,
+                                                        sp<MetaData> &format,
+                                                        size_t size) {
+    bool mMakeBigEndian = false;
+    const char *mime;
+
+    if (format->findCString(kKeyMIMEType, &mime)
+            && (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AC3) ||
+            !strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_EAC3))) {
+        mMakeBigEndian = true;
+    }
+    if (mMakeBigEndian && *((uint8_t *)buffer->data())==0x0b &&
+            *((uint8_t *)buffer->data()+1)==0x77 ) {
+        size_t count = 0;
+        for(count=0;count<size;count+=2) { // size is always even bytes in ac3/ec3 read
+            uint8_t tmp = *((uint8_t *)buffer->data() + count);
+            *((uint8_t *)buffer->data() + count) = *((uint8_t *)buffer->data()+count+1);
+            *((uint8_t *)buffer->data() + count+1) = tmp;
+        }
+    }
+}
+
 }
 #else //ENABLE_AV_ENHANCEMENTS
 
@@ -603,6 +626,12 @@ void ExtendedUtils::updateNativeWindowBufferGeometry(ANativeWindow* anw,
 bool ExtendedUtils::checkIsThumbNailMode(const uint32_t flags, char* componentName) {
     return false;
 }
+
+void ExtendedUtils::helper_Mpeg4ExtractorCheckAC3EAC3(MediaBuffer *buffer,
+                                                        sp<MetaData> &format,
+                                                        size_t size) {
+}
+
 
 }
 #endif //ENABLE_AV_ENHANCEMENTS
