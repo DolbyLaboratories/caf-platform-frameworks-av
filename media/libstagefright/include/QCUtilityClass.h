@@ -92,6 +92,10 @@ struct QCUtilityClass
     static sp<MediaExtractor> helper_MediaExtractor_CreateIfNeeded(sp<MediaExtractor> defaultExt,
                                                                     const sp<DataSource> &source,
                                                                                 const char *mime);
+    //helper function for MPEG4 Extractor to check for AC3/EAC3 contents
+    static void helper_mpeg4extractor_checkAC3EAC3(MediaBuffer *buffer, sp<MetaData> &format,
+                                                   size_t size);
+
 };
 
 }
