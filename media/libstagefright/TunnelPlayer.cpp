@@ -40,7 +40,7 @@
 #include <media/stagefright/MediaSource.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/MediaErrors.h>
-
+#include <QCMediaDefs.h>
 #include <hardware_legacy/power.h>
 
 #include <linux/unistd.h>
@@ -326,6 +326,14 @@ status_t TunnelPlayer::start(bool sourceAlreadyStarted) {
     if (!strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS)) {
         mFormat = AUDIO_FORMAT_AMR_WB_PLUS;
         ALOGV("TunnelPlayer::start AUDIO_FORMAT_AMR_WB_PLUS");
+    }
+    if (!strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_AC3)) {
+        mFormat = AUDIO_FORMAT_AC3;
+        ALOGV("TunnelPlayer::start AUDIO_FORMAT_AC3");
+    }
+    if (!strcasecmp(mime,MEDIA_MIMETYPE_AUDIO_EAC3)) {
+        mFormat = AUDIO_FORMAT_EAC3;
+        ALOGV("TunnelPlayer::start AUDIO_FORMAT_EAC3");
     }
 
     CHECK(success);
