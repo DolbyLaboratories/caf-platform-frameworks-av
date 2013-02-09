@@ -307,6 +307,8 @@ private:
     void logLate(int64_t ts, int64_t clock, int64_t delta);
     void logOnTime(int64_t ts, int64_t clock, int64_t delta);
     int64_t getTimeOfDayUs();
+    void checkTunnelExceptions();
+
     bool mStatistics;
 
     struct TrackStat {
