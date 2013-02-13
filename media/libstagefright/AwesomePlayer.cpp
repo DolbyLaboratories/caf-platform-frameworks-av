@@ -2021,8 +2021,8 @@ void AwesomePlayer::onVideoEvent() {
 
         if (latenessUs > 40000) {
             // We're more than 40ms late.
-            ALOGV("we're late by %lld us (%.2f secs)",
-                 latenessUs, latenessUs / 1E6);
+            ALOGE("we're late by %lld us nowUs %lld, timeUs %lld",
+                  latenessUs, nowUs, timeUs);
 
             if (!(mFlags & SLOW_DECODER_HACK)
                     || mSinceLastDropped > FRAME_DROP_FREQ)

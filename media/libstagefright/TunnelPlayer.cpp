@@ -577,7 +577,8 @@ void TunnelPlayer::extractorThreadEntry() {
     uint32_t BufferSizeToUse = MEM_BUFFER_SIZE;
 
     pid_t tid  = gettid();
-    androidSetThreadPriority(tid, ANDROID_PRIORITY_AUDIO);
+    androidSetThreadPriority(tid, mHasVideo ? ANDROID_PRIORITY_NORMAL :
+                                              ANDROID_PRIORITY_AUDIO);
     prctl(PR_SET_NAME, (unsigned long)"Extractor Thread", 0, 0, 0);
 
     ALOGV("extractorThreadEntry wait for signal \n");
@@ -669,6 +670,7 @@ void TunnelPlayer::extractorThreadEntry() {
                 }
             }
         }
+
     }
 
     free(local_buf);
@@ -709,6 +711,8 @@ size_t TunnelPlayer::fillBuffer(void *data, size_t size) {
     //clear the flag since we dont know whether we are seeking or not, yet
     ldataptr[(MEM_BUFFER_SIZE/sizeof(int))] = 0;
     ALOGV("fillBuffer: Clearing seek flag in fill buffer");
+
+    bool yield = !mIsFirstBuffer;
 
     while (size_remaining > 0) {
         MediaSource::ReadOptions options;
@@ -796,6 +800,10 @@ size_t TunnelPlayer::fillBuffer(void *data, size_t size) {
 
         size_done += copy;
         size_remaining -= copy;
+
+        if (mHasVideo && yield) {
+            sched_yield();
+        }
     }
     if(mReachedEOS)
         memset((char *)data + size_done, 0x0, size_remaining);
