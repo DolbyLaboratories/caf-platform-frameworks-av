@@ -2130,6 +2130,7 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
         int     mStreamType;
         float   mVolumeLeft;
         float   mVolumeRight;
+        float   mVolumeScale;
         audio_hw_device_t   *hwDev;
         audio_stream_out_t  *stream;
         audio_output_flags_t flag;
