@@ -1956,6 +1956,15 @@ status_t OMXCodec::allocateOutputBuffersFromNativeWindow() {
     int minUndequeuedBufs = 0;
     err = mNativeWindow->query(mNativeWindow.get(),
             NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS, &minUndequeuedBufs);
+
+    // add one extra undequeued buffer if framerate is too high
+    int32_t framerate = 0;
+    sp<MetaData> meta = mSource->getFormat();
+    if (meta->findInt32(kKeyFrameRate, &framerate) && framerate > 30) {
+        ALOGI("Adding one extra undequeued buffer, clip has framerate %d", framerate);
+        minUndequeuedBufs++;
+    }
+
     if (err != 0) {
         ALOGE("NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS query failed: %s (%d)",
                 strerror(-err), -err);
