@@ -374,7 +374,9 @@ status_t TunnelPlayer::start(bool sourceAlreadyStarted) {
 
 status_t TunnelPlayer::seekTo(int64_t time_us) {
 
-    ALOGV("seekTo: time_us %lld", time_us);
+    ALOGD("seekTo: time_us %lld", time_us);
+
+    Mutex::Autolock _l(mLock); //to sync w/ onpausetimeout
 
     //This can happen if the client calls seek
     //without ever calling getPosition
@@ -385,18 +387,25 @@ status_t TunnelPlayer::seekTo(int64_t time_us) {
     if (mPositionTimeRealUs > 0) {
       //check for return conditions only if seektime
       // is set
+      bool postSeekComplete = false;
+
       if (time_us > mPositionTimeRealUs){
-           if((time_us - mPositionTimeRealUs) < TUNNEL_BUFFER_TIME){
+           if ((time_us - mPositionTimeRealUs) < TUNNEL_BUFFER_TIME){
              ALOGV("In seekTo(), ignoring time_us %lld mSeekTimeUs %lld", time_us, mSeekTimeUs);
-             mObserver->postAudioSeekComplete();
-             return OK;
+             postSeekComplete = true;
            }
       } else {
-           if((mPositionTimeRealUs - time_us) < TUNNEL_BUFFER_TIME){
+           if ((mPositionTimeRealUs - time_us) < TUNNEL_BUFFER_TIME){
                ALOGV("In seekTo(), ignoring time_us %lld mSeekTimeUs %lld", time_us, mSeekTimeUs);
-               mObserver->postAudioSeekComplete();
-               return OK;
+               postSeekComplete = true;
            }
+      }
+
+      if (postSeekComplete) {
+          mLock.unlock(); //unlock and post
+          mObserver->postAudioSeekComplete();
+          mLock.lock();
+          return OK;
       }
     }
 
@@ -510,6 +519,13 @@ size_t TunnelPlayer::AudioSinkCallback(
 
 void TunnelPlayer::reset() {
     ALOGV("Reset");
+
+    Mutex::Autolock _l(mLock); //to sync w/ onpausetimeout
+
+    //cancel any pending onpause timeout events
+    //doesnt matter if the event is really present or not
+    mPauseEventPending = false;
+    mQueue.cancelEvent(mPauseEvent->eventID());
 
     mReachedEOS = true;
 
@@ -858,7 +874,9 @@ bool TunnelPlayer::getMediaTimeMapping(
     return mPositionTimeRealUs != -1 && mPositionTimeMediaUs != -1;
 }
 
+//lock has been taken in reset() to sync with onpausetimeout
 void TunnelPlayer::requestAndWaitForExtractorThreadExit() {
+    ALOGV("requestAndWaitForExtractorThreadExit -1");
 
     if (!extractorThreadAlive)
         return;
@@ -873,7 +891,9 @@ void TunnelPlayer::requestAndWaitForExtractorThreadExit() {
     ALOGV("requestAndWaitForExtractorThreadExit +1");
     pthread_cond_signal(&extractor_cv);
     ALOGV("requestAndWaitForExtractorThreadExit +2");
+    mLock.unlock();
     pthread_join(extractorThread,NULL);
+    mLock.lock();
     ALOGV("requestAndWaitForExtractorThreadExit +3");
 
     ALOGV("Extractor thread killed");
