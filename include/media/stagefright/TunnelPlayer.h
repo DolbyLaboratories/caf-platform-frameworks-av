@@ -218,6 +218,7 @@ private:
     size_t fillBuffer(void *data, size_t size);
 
     void reset();
+    bool seekTooClose(int64_t time_us);
 
     TunnelPlayer(const TunnelPlayer &);
     TunnelPlayer &operator=(const TunnelPlayer &);
