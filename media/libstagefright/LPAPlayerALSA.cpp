@@ -52,7 +52,7 @@
 static const char   mName[] = "LPAPlayer";
 
 #define MEM_PADDING 64
-#define MEM_BUFFER_SIZE (256*1024 - MEM_PADDING)
+#define MEM_BUFFER_SIZE (256*1024)
 #define MEM_BUFFER_COUNT 4
 
 #define PCM_FORMAT 2
@@ -511,7 +511,7 @@ void LPAPlayer::decoderThreadEntry() {
     if (killDecoderThread) {
         return;
     }
-    void* local_buf = malloc(MEM_BUFFER_SIZE + MEM_PADDING);
+    void* local_buf = malloc(MEM_BUFFER_SIZE);
     if(local_buf == (void*) NULL) {
         killDecoderThread = true;
         ALOGE("Malloc failed");
@@ -580,8 +580,7 @@ void LPAPlayer::decoderThreadEntry() {
 
                 if(lSeeking == false && (killDecoderThread == false)){
                     //if we are seeking, ignore write, otherwise write
-                    ALOGV("Fillbuffer before write %d and seek flag %d", mSeeking,
-                          lptr[MEM_BUFFER_SIZE/sizeof(int)]);
+                    ALOGV("Fillbuffer before seeling flag %d", mSeeking);
                     int lWrittenBytes = mAudioSink->write(local_buf, bytesWritten);
                     ALOGV("Fillbuffer after write, written bytes %d and seek flag %d", lWrittenBytes, mSeeking);
                 } else {
@@ -667,9 +666,6 @@ size_t LPAPlayer::fillBuffer(void *data, size_t size) {
 
     size_t size_done = 0;
     size_t size_remaining = size;
-    int *ldataptr = (int*) data;
-    //clear the flag since we dont know whether we are seeking or not, yet
-    ldataptr[(MEM_BUFFER_SIZE/sizeof(int))] = 0;
     ALOGV("fillBuffer: Clearing seek flag in fill buffer");
 
     while (size_remaining > 0) {
@@ -709,8 +705,6 @@ size_t LPAPlayer::fillBuffer(void *data, size_t size) {
                 }
                 mInternalSeeking = false;
                 ALOGV("fillBuffer: Setting seek flag in fill buffer");
-                //set the flag since we know that this buffer is the new positions buffer
-                ldataptr[(MEM_BUFFER_SIZE/sizeof(int))] = 1;
             }
         }
 
