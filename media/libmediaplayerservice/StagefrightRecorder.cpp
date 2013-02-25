@@ -189,7 +189,7 @@ status_t StagefrightRecorder::setAudioEncoder(audio_encoder ae) {
     } else if(mAudioEncoder == AUDIO_ENCODER_AMR_WB) {
         mSampleRate = 16000;
         mAudioChannels = 1;
-        mAudioBitRate = 23850;
+        mAudioBitRate = mAudioBitRate ? mAudioBitRate : 23850;
     } else {
         mSampleRate = mSampleRate ? mSampleRate : 8000;
         mAudioChannels = mAudioChannels ? mAudioChannels : 1;
