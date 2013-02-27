@@ -837,6 +837,19 @@ size_t TunnelPlayer::fillBuffer(void *data, size_t size) {
 
 int64_t TunnelPlayer::getRealTimeUs() {
     Mutex::Autolock autoLock(mLock);
+
+    /*
+     * If it so happens that the client (e.g. AwesomePlayer),
+     * queries for the current time before compressed
+     * data from the new position is given to the compressed
+     * driver, we need to return the seek position
+     */
+    if (mSeeking || mInternalSeeking) {
+        ALOGV("Seek yet to be processed, return seek time as current time %lld",
+              mSeekTimeUs);
+        return mSeekTimeUs;
+    }
+
     getOffsetRealTime_l(&mPositionTimeRealUs);
     //update media time too
     mPositionTimeMediaUs = mPositionTimeRealUs;
