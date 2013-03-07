@@ -306,6 +306,7 @@ private:
     void logCatchUp(int64_t ts, int64_t clock, int64_t delta);
     void logLate(int64_t ts, int64_t clock, int64_t delta);
     void logOnTime(int64_t ts, int64_t clock, int64_t delta);
+    void printStats();
     int64_t getTimeOfDayUs();
     void checkTunnelExceptions();
 
