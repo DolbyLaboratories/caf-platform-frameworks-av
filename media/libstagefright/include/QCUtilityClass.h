@@ -46,6 +46,9 @@
 #include <camera/CameraParameters.h>
 
 #include <OMX_Video.h>
+#include <media/stagefright/MediaExtractor.h>
+#include <media/stagefright/MediaDebug.h>
+#include <media/stagefright/MediaDefs.h>
 
 namespace android {
 
@@ -86,6 +89,9 @@ struct QCUtilityClass
     //helper function to setBframe related info for H264 type
     static void helper_OMXCodec_setBFrames(OMX_VIDEO_PARAM_AVCTYPE &h264type, bool &numBFrames,
                                            int32_t iFramesInterval, int32_t frameRate);
+    static sp<MediaExtractor> helper_MediaExtractor_CreateIfNeeded(sp<MediaExtractor> defaultExt,
+                                                                    const sp<DataSource> &source,
+                                                                                const char *mime);
 };
 
 }

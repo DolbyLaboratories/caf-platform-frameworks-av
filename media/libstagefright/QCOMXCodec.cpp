@@ -449,6 +449,8 @@ status_t QCOMXCodec::setQCVideoInputFormat(const char *mime, OMX_VIDEO_CODINGTYP
         *compressionFormat = OMX_VIDEO_CodingWMV;
     } else if (!strcasecmp(MEDIA_MIMETYPE_CONTAINER_MPEG2, mime)){
         *compressionFormat = OMX_VIDEO_CodingMPEG2;
+    } else if (!strcasecmp(MEDIA_MIMETYPE_VIDEO_HEVC, mime)){
+        *compressionFormat = (OMX_VIDEO_CODINGTYPE)QOMX_VIDEO_CodingHevc;
     } else {
         retVal = BAD_VALUE;
     }
@@ -466,6 +468,8 @@ status_t QCOMXCodec::setQCVideoOutputFormat(const char *mime, OMX_VIDEO_CODINGTY
         *compressionFormat = (OMX_VIDEO_CODINGTYPE)QOMX_VIDEO_CodingDivx;
     } else if (!strcasecmp(MEDIA_MIMETYPE_VIDEO_WMV, mime)){
         *compressionFormat = OMX_VIDEO_CodingWMV;
+    } else if (!strcasecmp(MEDIA_MIMETYPE_VIDEO_HEVC, mime)){
+        *compressionFormat = (OMX_VIDEO_CODINGTYPE)QOMX_VIDEO_CodingHevc;
     } else {
         retVal = BAD_VALUE;
     }
