@@ -348,7 +348,6 @@ sp<MediaSource> OMXCodec::Create(
     const char *mime;
     bool success = meta->findCString(kKeyMIMEType, &mime);
     CHECK(success);
-
     Vector<CodecNameAndQuirks> matchingCodecs;
     findMatchingCodecs(
             mime, createEncoder, matchComponentName, flags, &matchingCodecs);
@@ -1557,6 +1556,8 @@ void OMXCodec::setComponentRole(
             "audio_decoder,qcelp13Hw", "audio_encoder.qcelp13" },
         { MEDIA_MIMETYPE_VIDEO_AVC,
             "video_decoder.avc", "video_encoder.avc" },
+        { MEDIA_MIMETYPE_VIDEO_HEVC,
+            "video_decoder.hevc", "video_encoder.hevc" },
         { MEDIA_MIMETYPE_VIDEO_MPEG4,
             "video_decoder.mpeg4", "video_encoder.mpeg4" },
         { MEDIA_MIMETYPE_VIDEO_H263,
@@ -1887,7 +1888,6 @@ status_t OMXCodec::allocateOutputBuffersFromNativeWindow() {
     OMX_PARAM_PORTDEFINITIONTYPE def;
     InitOMXParams(&def);
     def.nPortIndex = kPortIndexOutput;
-
     status_t err = mOMX->getParameter(
             mNode, OMX_IndexParamPortDefinition, &def, sizeof(def));
     if (err != OK) {
@@ -2001,7 +2001,6 @@ status_t OMXCodec::allocateOutputBuffersFromNativeWindow() {
             ALOGE("dequeueBuffer failed: %s (%d)", strerror(-err), -err);
             break;
         }
-
         sp<GraphicBuffer> graphicBuffer(new GraphicBuffer(buf, false));
         BufferInfo info;
         info.mData = NULL;
@@ -4904,6 +4903,9 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
             } else if (video_def->eCompressionFormat == OMX_VIDEO_CodingAVC) {
                 mOutputFormat->setCString(
                         kKeyMIMEType, MEDIA_MIMETYPE_VIDEO_AVC);
+            } else if (video_def->eCompressionFormat == (OMX_VIDEO_CODINGTYPE)QOMX_VIDEO_CodingHevc) {
+                mOutputFormat->setCString(
+                        kKeyMIMEType, MEDIA_MIMETYPE_VIDEO_HEVC);
             } else {
                 CHECK(!"Unknown compression format.");
             }

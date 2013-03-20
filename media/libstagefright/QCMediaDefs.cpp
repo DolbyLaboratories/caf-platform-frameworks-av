@@ -51,5 +51,7 @@ const char *MEDIA_MIMETYPE_AUDIO_DTS_LBR = "audio/dts-lbr";
 const char *MEDIA_MIMETYPE_AUDIO_EAC3 = "audio/eac3";
 const char *MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS = "audio/amr-wb-plus";
 const char *MEDIA_MIMETYPE_CONTAINER_QCMPEG2TS = "video/qc-mp2ts";
+const char *MEDIA_MIMETYPE_VIDEO_HEVC = "video/hevc";
+
 }  // namespace android
 
