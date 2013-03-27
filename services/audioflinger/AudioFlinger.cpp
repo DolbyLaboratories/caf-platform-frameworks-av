@@ -6233,12 +6233,12 @@ AudioFlinger::DirectAudioTrack::~DirectAudioTrack() {
 }
 
 status_t AudioFlinger::DirectAudioTrack::start() {
+    AudioSystem::startOutput(mOutput, (audio_stream_type_t)mOutputDesc->mStreamType);
     if(mIsPaused) {
         mIsPaused = false;
         mOutputDesc->stream->start(mOutputDesc->stream);
     }
     mOutputDesc->mActive = true;
-    AudioSystem::startOutput(mOutput, (audio_stream_type_t)mOutputDesc->mStreamType);
     return NO_ERROR;
 }
 
