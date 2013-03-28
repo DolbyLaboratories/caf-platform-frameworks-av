@@ -1898,6 +1898,8 @@ status_t MPEG4Extractor::updateAudioTrackInfoFromESDS_MPEG4Audio(
 
     if (objectType == 31) {  // AAC-ELD => additional 6 bits
         objectType = 32 + br.getBits(6);
+        ALOGV("Add temporary exception information for Tunnel Decode");
+        mLastTrack->meta->setInt32(kKeyTunnelException, 1);
     }
 
     uint32_t freqIndex = br.getBits(4);
