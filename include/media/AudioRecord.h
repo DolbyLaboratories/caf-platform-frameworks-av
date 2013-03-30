@@ -186,7 +186,7 @@ public:
             audio_format_t format() const;
             uint32_t    channelCount() const;
             size_t      frameCount() const;
-            size_t      frameSize() const { return mFrameSize; }
+            size_t      frameSize() const;
             audio_source_t inputSource() const;
 
 
