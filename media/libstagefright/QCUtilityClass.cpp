@@ -257,10 +257,14 @@ sp<MediaExtractor> QCUtilityClass::helper_MediaExtractor_CreateIfNeeded(sp<Media
                                                      const sp<DataSource> &source,
                                                      const char *mime) {
     bool bCheckExtendedExtractor = false;
-    bool videoOnly = true;
-    bool amrwbAudio = false;
+    bool videoTrackFound = false;
+    bool audioTrackFound = false;
+    bool amrwbAudio      = false;
+    int numOfTrack = 0;
+
     if (defaultExt != NULL) {
         for (size_t i = 0; i < defaultExt->countTracks(); ++i) {
+            ++numOfTrack;
             sp<MetaData> meta = defaultExt->getTrackMetaData(i);
             const char *_mime;
             CHECK(meta->findCString(kKeyMIMEType, &_mime));
@@ -268,15 +272,35 @@ sp<MediaExtractor> QCUtilityClass::helper_MediaExtractor_CreateIfNeeded(sp<Media
             String8 mime = String8(_mime);
 
             if (!strncasecmp(mime.string(), "audio/", 6)) {
-                videoOnly = false;
+                audioTrackFound = true;
 
                 amrwbAudio = !strncasecmp(mime.string(),
                                           MEDIA_MIMETYPE_AUDIO_AMR_WB,
                                           strlen(MEDIA_MIMETYPE_AUDIO_AMR_WB));
                 if (amrwbAudio) break;
+            }else if(!strncasecmp(mime.string(), "video/", 6)) {
+                videoTrackFound = true;
             }
         }
-        bCheckExtendedExtractor = videoOnly || amrwbAudio;
+
+        if(amrwbAudio) {
+            bCheckExtendedExtractor = true;
+        }else if (numOfTrack  == 0) {
+            bCheckExtendedExtractor = true;
+        } else if(numOfTrack == 1) {
+            if((videoTrackFound) ||
+                (!videoTrackFound && !audioTrackFound)){
+                    bCheckExtendedExtractor = true;
+            }
+        } else if (numOfTrack >= 2){
+            if(videoTrackFound && audioTrackFound) {
+                if(amrwbAudio) {
+                    bCheckExtendedExtractor = true;
+                }
+            } else {
+                bCheckExtendedExtractor = true;
+            }
+        }
     } else {
         bCheckExtendedExtractor = true;
     }
