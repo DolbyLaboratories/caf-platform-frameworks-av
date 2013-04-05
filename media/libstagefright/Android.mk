@@ -12,6 +12,10 @@ ifeq ($(BOARD_USES_ALSA_AUDIO),true)
     ifeq ($(call is-chipset-in-board-platform,msm8226),true)
         LOCAL_CFLAGS += -DUSE_TUNNEL_MODE
     endif
+    ifeq ($(call is-chipset-in-board-platform,msm8610),true)
+        LOCAL_CFLAGS += -DUSE_TUNNEL_MODE
+        LOCAL_CFLAGS += -DNO_TUNNEL_MODE_FOR_MULTICHANNEL
+    endif
 endif
 
 include frameworks/av/media/libstagefright/codecs/common/Config.mk
