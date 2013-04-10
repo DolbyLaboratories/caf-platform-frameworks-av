@@ -349,8 +349,8 @@ private:
         int64_t mLastFrameUs;
         bool mVeryFirstFrame;
         int64_t mTotalTimeUs;
-        int64_t mLastPausedTimeMs;
-        int64_t mLastSeekToTimeMs;
+        int64_t mResumeDelayStartUs;
+        int64_t mSeekDelayStartUs;
     } mStats;
 
     status_t setVideoScalingMode(int32_t mode);

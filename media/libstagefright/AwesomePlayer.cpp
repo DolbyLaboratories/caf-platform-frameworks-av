@@ -258,8 +258,6 @@ void AwesomePlayer::printStats() {
             "   Total Playback Duration(%lld ms)\n"
             "   numVideoFramesDropped(%lld)\n"
             "   Average Frames Per Second(%.4f)\n"
-            "   Last Seek To Time(%lld ms)\n"
-            "   Last Paused Time(%lld ms)\n"
             "   First Frame Latency (%lld ms)\n"
             "   Number of times AV Sync Lost(%u)\n"
             "   Max Video Ahead Time Delta(%u)\n"
@@ -275,8 +273,6 @@ void AwesomePlayer::printStats() {
             mStats.mTotalTimeUs/1000,
             mStats.mNumVideoFramesDropped,
             mStats.mTotalTimeUs > 0 ? ((double)(mStats.mTotalFrames)*1E6)/((double)mStats.mTotalTimeUs) : 0,
-            mStats.mLastSeekToTimeMs,
-            mStats.mLastPausedTimeMs,
             mStats.mFirstFrameLatencyUs/1000,
             mStats.mNumTimesSyncLoss,
             -mStats.mMaxEarlyDelta/1000,
@@ -652,9 +648,10 @@ void AwesomePlayer::reset_l() {
         mStats.mTotalFrames = 0;
         mStats.mLastFrameUs = 0;
         mStats.mTotalTimeUs = 0;
-        mStats.mLastPausedTimeMs = 0;
-        mStats.mLastSeekToTimeMs = 0;
+        mStats.mVeryFirstFrame = true;
         mStats.mFirstFrameLatencyUs = 0;
+        mStats.mResumeDelayStartUs = -1;
+        mStats.mSeekDelayStartUs = -1;
     }
 
     mWatchForAudioSeekComplete = false;
@@ -1094,8 +1091,11 @@ status_t AwesomePlayer::play_l() {
 
     {
         Mutex::Autolock autoLock(mStatsLock);
-        mStats.mFirstFrameLatencyStartUs = getTimeOfDayUs();
-        mStats.mVeryFirstFrame = true;
+        if (mStats.mVeryFirstFrame) {
+            mStats.mFirstFrameLatencyStartUs = getTimeOfDayUs();
+        } else {
+            mStats.mResumeDelayStartUs = getTimeOfDayUs();
+        }
     }
 
     if (mVideoSource != NULL) {
@@ -1105,7 +1105,6 @@ status_t AwesomePlayer::play_l() {
         if (mAudioSource != NULL && mVideoSource != NULL) {
             postVideoLagEvent_l();
         }
-        printStats();
     }
 
     if (mFlags & AT_EOS) {
@@ -1322,12 +1321,6 @@ status_t AwesomePlayer::pause_l(bool at_eos) {
                 Playback::PAUSE, 0);
     }
 
-    if(!(mFlags & VIDEO_AT_EOS)){
-        Mutex::Autolock autoLock(mStatsLock);
-        mStats.mLastPausedTimeMs = mVideoTimeUs/1000;
-        printStats();
-    }
-
     uint32_t params = IMediaPlayerService::kBatteryDataTrackDecoder;
     if ((mAudioSource != NULL) && (mAudioSource != mAudioTrack)) {
         params |= IMediaPlayerService::kBatteryDataTrackAudio;
@@ -1491,8 +1484,7 @@ status_t AwesomePlayer::seekTo_l(int64_t timeUs) {
 
     {
         Mutex::Autolock autoLock(mStatsLock);
-        mStats.mFirstFrameLatencyStartUs = getTimeOfDayUs();
-        mStats.mVeryFirstFrame = true;
+        mStats.mSeekDelayStartUs = getTimeOfDayUs();
     }
     mSeekNotificationSent = false;
     mSeekTimeUs = timeUs;
@@ -1843,13 +1835,6 @@ void AwesomePlayer::finishSeekIfNecessary(int64_t videoTimeUs) {
         mDrmManagerClient->setPlaybackStatus(mDecryptHandle,
                 Playback::START, videoTimeUs / 1000);
     }
-
-    {
-        Mutex::Autolock autoLock(mStatsLock);
-        mStats.mLastSeekToTimeMs = mSeekTimeUs/1000;
-        logFirstFrame();
-    }
-    printStats();
 }
 
 void AwesomePlayer::onVideoEvent() {
@@ -2008,6 +1993,7 @@ void AwesomePlayer::onVideoEvent() {
             Mutex::Autolock autoLock(mStatsLock);
             if(mStats.mVeryFirstFrame){
                 logFirstFrame();
+                printStats();
                 mStats.mLastFrameUs = getTimeOfDayUs();
             }
         }
@@ -2127,6 +2113,18 @@ void AwesomePlayer::onVideoEvent() {
             logOnTime(timeUs,nowUs,latenessUs);
             mStats.mTotalFrames++;
             mStats.mConsecutiveFramesDropped = 0;
+            char value[PROPERTY_VALUE_MAX];
+            property_get("persist.debug.sf.statistics", value, "0");
+            if (atoi(value) && mVideoSource != NULL) {
+                if (mStats.mResumeDelayStartUs > 0) {
+                    ALOGE("Resume Latency = %lld us", getTimeOfDayUs() - mStats.mResumeDelayStartUs);
+                    mStats.mResumeDelayStartUs = -1;
+                }
+                if (mStats.mSeekDelayStartUs > 0) {
+                    ALOGE("Seek Latency = %lld us", getTimeOfDayUs() - mStats.mSeekDelayStartUs);
+                    mStats.mSeekDelayStartUs = -1;
+                }
+            }
         }
     }
 
@@ -2931,8 +2929,6 @@ status_t AwesomePlayer::dump(int fd, const Vector<String16> &args) const {
                     "   Total Playback Duration(%lld ms)\n"
                     "   numVideoFramesDropped(%lld)\n"
                     "   Average Frames Per Second(%.4f)\n"
-                    "   Last Seek To Time(%lld ms)\n"
-                    "   Last Paused Time(%lld ms)\n"
                     "   First Frame Latency (%lld ms)\n"
                     "   Number of times AV Sync Lost(%u)\n"
                     "   Max Video Ahead Time Delta(%u)\n"
@@ -2947,8 +2943,6 @@ status_t AwesomePlayer::dump(int fd, const Vector<String16> &args) const {
                     mStats.mTotalTimeUs/1000,
                     mStats.mNumVideoFramesDropped,
                     ((double)(mStats.mTotalFrames)*1E6)/((double)mStats.mTotalTimeUs),
-                    mStats.mLastSeekToTimeMs,
-                    mStats.mLastPausedTimeMs,
                     mStats.mFirstFrameLatencyUs/1000,
                     mStats.mNumTimesSyncLoss,
                     -mStats.mMaxEarlyDelta/1000,
