@@ -1,7 +1,7 @@
 # @@DOLBY_BANNER
 #
 # This file was modified by Dolby Laboratories, Inc. The portions of the
-# code that are surrounded by "DOLBY..." are copyrighted and 
+# code that are surrounded by "DOLBY..." are copyrighted and
 # licensed separately, as follows:
 #
 #  (C) 2012 Dolby Laboratories, Inc.
@@ -44,7 +44,6 @@ ifdef DOLBY_UDC
   LOCAL_CFLAGS += -DDOLBY_UDC_STREAMING_HLS
 #endif
 endif #DOLBY_UDC
-
 ifeq ($(TARGET_ARCH),arm)
     LOCAL_CFLAGS += -Wno-psabi
 endif

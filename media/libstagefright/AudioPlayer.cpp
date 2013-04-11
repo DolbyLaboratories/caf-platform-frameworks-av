@@ -15,7 +15,7 @@
  * @@DOLBY_BANNER
  *
  * This file was modified by Dolby Laboratories, Inc. The portions of the
- * code that are surrounded by "DOLBY..." are copyrighted and 
+ * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
  *  (C) 2011-2012 Dolby Laboratories, Inc.
@@ -23,9 +23,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -54,7 +54,6 @@
 #include "include/AwesomePlayer.h"
 
 namespace android {
-
 #ifdef DOLBY_UDC_MULTICHANNEL
 struct AudioPlayerEvent : public TimedEventQueue::Event {
     AudioPlayerEvent(
@@ -393,8 +392,8 @@ void AudioPlayer::onPortSettingsChangedEvent() {
     ALOGV("Port Settings Changed!");
 
     status_t err = OK;
-	bool success;
-	sp<MetaData> format;
+    bool success;
+    sp<MetaData> format;
     Mutex::Autolock autoLock(mLock);
 
     if (!mPortSettingsChangedEventPending) {
@@ -516,7 +515,6 @@ int AudioPlayer::reOpenSink(int numChannels, int channelMask)
     return OK;
 }
 #endif // DOLBY_UDC_MULTICHANNEL
-
 uint32_t AudioPlayer::getNumFramesPendingPlayout() const {
     uint32_t numFramesPlayedOut;
     status_t err;

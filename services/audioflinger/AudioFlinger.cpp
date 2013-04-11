@@ -16,7 +16,7 @@
 ** @@DOLBY_BANNER
 **
 ** This file was modified by Dolby Laboratories, Inc. The portions of the
-** code that are surrounded by "DOLBY..." are copyrighted and 
+** code that are surrounded by "DOLBY..." are copyrighted and
 ** licensed separately, as follows:
 **
 **  (C) 2011-2013 Dolby Laboratories, Inc.
@@ -24,9 +24,9 @@
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
 ** You may obtain a copy of the License at
-** 
+**
 **    http://www.apache.org/licenses/LICENSE-2.0
-** 
+**
 ** Unless required by applicable law or agreed to in writing, software
 ** distributed under the License is distributed on an "AS IS" BASIS,
 ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -209,7 +209,6 @@ static const char kDsNativeSetParamSymbol[] = "_ZN7android8DsNative12setParamete
 static void *gDsNativeLib = NULL;
 static status_t (*gDsNativeSetParam)(int, const void *) = NULL;
 #endif // DOLBY_DAP_QDSP
-
 // ----------------------------------------------------------------------------
 
 #ifdef ADD_BATTERY_DATA
@@ -325,7 +324,6 @@ AudioFlinger::~AudioFlinger()
         audio_hw_device_close(mAudioHwDevs.valueAt(i)->hwDevice());
         delete mAudioHwDevs.valueAt(i);
     }
-
 #ifdef DOLBY_DAP_QDSP
     if (gDsNativeLib != NULL) {
         void (*dsNativeClose)() = NULL;
@@ -2990,7 +2988,6 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
     // The number of pausing tracks.
     size_t   pausingTracks = 0;
 #endif // DOLBY_DAP_QDSP
-
     if (masterMute) {
         masterVolume = 0;
     }
@@ -3292,7 +3289,6 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
                 }
                 track->mHasVolumeController = false;
             }
-
 #if defined(DOLBY_DAP_QDSP)
             // Select the maximum volume as the pregain by scanning all the active audio tracks.
             vl_ds_pregain = (vl_ds_pregain >= vl) ? vl_ds_pregain : vl;
@@ -3472,7 +3468,6 @@ track_is_ready: ;
     if (fastTracks > 0) {
         mixerStatus = MIXER_TRACKS_READY;
     }
-
 #if defined(DOLBY_DAP_QDSP)
     // CodeAuroraForum-based version of pregain code.
     /*
@@ -3520,7 +3515,6 @@ track_is_ready: ;
         }
     }
 #endif // DOLBY_DAP_QDSP
-
     return mixerStatus;
 }
 

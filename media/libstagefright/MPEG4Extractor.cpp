@@ -15,7 +15,7 @@
  * @@DOLBY_BANNER
  *
  * This file was modified by Dolby Laboratories, Inc. The portions of the
- * code that are surrounded by "DOLBY..." are copyrighted and 
+ * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
  *  (C) 2011-2012 Dolby Laboratories, Inc.
@@ -23,9 +23,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -302,7 +302,6 @@ static const char *FourCC2MIME(uint32_t fourcc) {
             #endif
             return MEDIA_MIMETYPE_AUDIO_EC3;
         #endif //DOLBY_UDC
-
         default:
             CHECK(!"should not be here.");
             #ifdef DOLBY_UDC
@@ -1010,7 +1009,6 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                 num_channels = 1;
                 sample_rate = 16000;
             }
-
             #ifdef DOLBY_UDC
             #if defined (DEBUG_LOG_DDP_DECODER_EXTRA)
             ALOGE("@DDP FourCC:'%s'", FourCC2MIME(chunk_type));

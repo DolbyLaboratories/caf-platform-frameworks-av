@@ -1,7 +1,7 @@
 # @@DOLBY_BANNER
 #
 # This file was modified by Dolby Laboratories, Inc. The portions of the
-# code that are surrounded by "DOLBY..." are copyrighted and 
+# code that are surrounded by "DOLBY..." are copyrighted and
 # licensed separately, as follows:
 #
 #  (C) 2012 Dolby Laboratories, Inc.
@@ -45,7 +45,6 @@ LOCAL_CFLAGS += -Wno-multichar
 ifdef DOLBY_UDC
   LOCAL_CFLAGS += -DDOLBY_UDC
 endif #DOLBY_UDC
-
 LOCAL_MODULE_TAGS := debug
 
 LOCAL_MODULE:= stagefright

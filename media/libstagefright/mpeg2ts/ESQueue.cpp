@@ -15,7 +15,7 @@
  * @@DOLBY_BANNER
  *
  * This file was modified by Dolby Laboratories, Inc. The portions of the
- * code that are surrounded by "DOLBY..." are copyrighted and 
+ * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
  *  (C) 2011-2012 Dolby Laboratories, Inc.
@@ -23,9 +23,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -317,7 +317,6 @@ status_t ElementaryStreamQueue::appendData(
             }
 
 #endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
-
             default:
                 TRESPASS();
                 break;
@@ -642,7 +641,6 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitDDP() {
     return accessUnit;
 }
 #endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
-
 int64_t ElementaryStreamQueue::fetchTimestamp(size_t size) {
     int64_t timeUs = -1;
     bool first = true;

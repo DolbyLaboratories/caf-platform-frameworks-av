@@ -1,7 +1,7 @@
 # @@DOLBY_BANNER
 #
 # This file was modified by Dolby Laboratories, Inc. The portions of the
-# code that are surrounded by "DOLBY..." are copyrighted and 
+# code that are surrounded by "DOLBY..." are copyrighted and
 # licensed separately, as follows:
 #
 #  (C) 2012 Dolby Laboratories, Inc.
@@ -106,7 +106,6 @@ ifdef DOLBY_DAP
     LOCAL_CFLAGS += -DDOLBY_DAP_QDSP
 #endif
 endif # DOLBY_DAP END
-
 include $(BUILD_SHARED_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))
