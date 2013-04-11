@@ -12,6 +12,29 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * @@DOLBY_BANNER
+ *
+ * This file was modified by Dolby Laboratories, Inc. The portions of the
+ * code that are surrounded by "DOLBY..." are copyrighted and 
+ * licensed separately, as follows:
+ *
+ *  (C) 2011-2012 Dolby Laboratories, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @@DOLBY_FILE_M
+ * @@DOLBY_FILE_R
+ * @@DOLBY_BANNER_END
  */
 
 //#define LOG_NDEBUG 0
@@ -53,6 +76,10 @@ static const struct {
     { "OMX.google.vpx.decoder", "vpxdec", "video_decoder.vpx" },
     { "OMX.google.raw.decoder", "rawdec", "audio_decoder.raw" },
     { "OMX.google.flac.encoder", "flacenc", "audio_encoder.flac" },
+#ifdef DOLBY_UDC
+    { "OMX.dolby.ac3.decoder", "ddpdec", "audio_decoder.ac3" },
+    { "OMX.dolby.ec3.decoder", "ddpdec", "audio_decoder.ec3" },
+#endif // DOLBY_UDC
 };
 
 static const size_t kNumComponents =

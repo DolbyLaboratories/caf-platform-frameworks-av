@@ -12,6 +12,29 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * @@DOLBY_BANNER
+ *
+ * This file was modified by Dolby Laboratories, Inc. The portions of the
+ * code that are surrounded by "DOLBY..." are copyrighted and 
+ * licensed separately, as follows:
+ *
+ *  (C) 2011-2012 Dolby Laboratories, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @@DOLBY_FILE_M
+ * @@DOLBY_FILE_R
+ * @@DOLBY_BANNER_END
  */
 
 //#define LOG_NDEBUG 0
@@ -494,6 +517,20 @@ ATSParser::Stream::Stream(
                     ElementaryStreamQueue::PCM_AUDIO);
             break;
 
+#if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
+        case STREAMTYPE_DDP_AC3_AUDIO:
+            // TODO FIXME verify!
+            mQueue = new ElementaryStreamQueue(
+                    ElementaryStreamQueue::DDP_AC3_AUDIO);
+            break;
+
+        case STREAMTYPE_DDP_EC3_AUDIO:
+            // TODO FIXME verify!
+            mQueue = new ElementaryStreamQueue(
+                    ElementaryStreamQueue::DDP_EC3_AUDIO);
+            break;
+#endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
+
         default:
             break;
     }
@@ -592,6 +629,10 @@ bool ATSParser::Stream::isAudio() const {
         case STREAMTYPE_MPEG2_AUDIO:
         case STREAMTYPE_MPEG2_AUDIO_ADTS:
         case STREAMTYPE_PCM_AUDIO:
+#if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
+        case STREAMTYPE_DDP_AC3_AUDIO:
+        case STREAMTYPE_DDP_EC3_AUDIO:
+#endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
             return true;
 
         default:
