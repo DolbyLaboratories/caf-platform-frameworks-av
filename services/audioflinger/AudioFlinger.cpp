@@ -1437,14 +1437,14 @@ void AudioFlinger::registerClient(const sp<IAudioFlingerClient>& client)
 
     Mutex::Autolock _l(mLock);
 
-    sp<IBinder> binder = client->asBinder();
-    if (mNotificationClients.indexOfKey(binder) < 0) {
+    pid_t pid = IPCThreadState::self()->getCallingPid();
+    if (mNotificationClients.indexOfKey(pid) < 0) {
         sp<NotificationClient> notificationClient = new NotificationClient(this,
                                                                             client,
-                                                                            binder);
-        ALOGV("registerClient() client %p, binder %d", notificationClient.get(), binder.get());
+                                                                            pid);
+        ALOGV("registerClient() client %p, pid %d", notificationClient.get(), pid);
 
-        mNotificationClients.add(binder, notificationClient);
+        mNotificationClients.add(pid, notificationClient);
 
         sp<IBinder> binder = client->asBinder();
         binder->linkToDeath(notificationClient);
@@ -1466,8 +1466,7 @@ status_t AudioFlinger::deregisterClient(const sp<IAudioFlingerClient>& client)
     ALOGV("deregisterClient() %p, tid %d, calling tid %d", client.get(), gettid(), IPCThreadState::self()->getCallingPid());
     Mutex::Autolock _l(mLock);
 
-    sp<IBinder> binder = client->asBinder();
-    int index = mNotificationClients.indexOfKey(binder);
+    int index = mNotificationClients.indexOfKey(IPCThreadState::self()->getCallingPid());
     if (index >= 0) {
         mNotificationClients.removeItemsAt(index);
         return true;
@@ -1476,13 +1475,12 @@ status_t AudioFlinger::deregisterClient(const sp<IAudioFlingerClient>& client)
     return false;
 }
 
-void AudioFlinger::removeNotificationClient(sp<IBinder> binder)
+void AudioFlinger::removeNotificationClient(pid_t pid)
 {
     Mutex::Autolock _l(mLock);
 
-    mNotificationClients.removeItem(binder);
+    mNotificationClients.removeItem(pid);
 
-    int pid = IPCThreadState::self()->getCallingPid();
     ALOGV("%d died, releasing its sessions", pid);
     size_t num = mAudioSessionRefs.size();
     bool removed = false;
@@ -1511,10 +1509,24 @@ void AudioFlinger::audioConfigChanged_l(int event, audio_io_handle_t ioHandle, c
     if (event == AudioSystem::EFFECT_CONFIG_CHANGED) {
         mIsEffectConfigChanged = true;
     }
-    size_t size = mNotificationClients.size();
-    for (size_t i = 0; i < size; i++) {
-        mNotificationClients.valueAt(i)->audioFlingerClient()->ioConfigChanged(event, ioHandle,
-                                                                               param2);
+    if (!mNotificationClients.isEmpty()){
+        size_t size = mNotificationClients.size();
+        for (size_t i = 0; i < size; i++) {
+            mNotificationClients.valueAt(i)->audioFlingerClient()->ioConfigChanged(event, ioHandle,
+                                                                                   param2);
+        }
+    }
+    if ((!mDirectAudioTracks.isEmpty())&& (event == AudioSystem::EFFECT_CONFIG_CHANGED)){
+        size_t dsize = mDirectAudioTracks.size();
+        for(size_t i = 0; i < dsize; i++) {
+            AudioSessionDescriptor *desc = mDirectAudioTracks.valueAt(i);
+            if(desc) {
+                ALOGV("signalling directAudioTrack ");
+                ((DirectAudioTrack*)desc->trackRefPtr)->signalEffect();
+            } else{
+                ALOGV("not found track to signal directAudioTrack ");
+            }
+        }
     }
 }
 
@@ -6383,8 +6395,8 @@ void AudioFlinger::Client::releaseTimedTrack()
 
 AudioFlinger::NotificationClient::NotificationClient(const sp<AudioFlinger>& audioFlinger,
                                                      const sp<IAudioFlingerClient>& client,
-                                                     sp<IBinder> binder)
-    : mAudioFlinger(audioFlinger), mBinder(binder), mAudioFlingerClient(client)
+                                                     pid_t pid)
+    : mAudioFlinger(audioFlinger), mPid(pid), mAudioFlingerClient(client)
 {
 }
 
@@ -6395,7 +6407,7 @@ AudioFlinger::NotificationClient::~NotificationClient()
 void AudioFlinger::NotificationClient::binderDied(const wp<IBinder>& who)
 {
     sp<NotificationClient> keep(this);
-    mAudioFlinger->removeNotificationClient(mBinder);
+    mAudioFlinger->removeNotificationClient(mPid);
 }
 
 // ----------------------------------------------------------------------------
@@ -6413,22 +6425,23 @@ AudioFlinger::DirectAudioTrack::DirectAudioTrack(const sp<AudioFlinger>& audioFl
 #endif
     if (mFlag & AUDIO_OUTPUT_FLAG_LPA) {
         createEffectThread();
-
-        mAudioFlingerClient = new AudioFlingerDirectTrackClient(this);
-        mAudioFlinger->registerClient(mAudioFlingerClient);
-
         allocateBufPool();
 #ifdef SRS_PROCESSING
     } else if (mFlag & AUDIO_OUTPUT_FLAG_TUNNEL) {
         ALOGV("create effects thread for TUNNEL");
         createEffectThread();
-        mAudioFlingerClient = new AudioFlingerDirectTrackClient(this);
-        mAudioFlinger->registerClient(mAudioFlingerClient);
 #endif
     }
     outputDesc->mVolumeScale = 1.0;
     mDeathRecipient = new PMDeathRecipient(this);
     acquireWakeLock();
+}
+
+void AudioFlinger::DirectAudioTrack::signalEffect() {
+    if (mFlag & AUDIO_OUTPUT_FLAG_LPA){
+        mEffectConfigChanged = true;
+        mEffectCv.signal();
+    }
 }
 
 AudioFlinger::DirectAudioTrack::~DirectAudioTrack() {
@@ -6438,13 +6451,11 @@ AudioFlinger::DirectAudioTrack::~DirectAudioTrack() {
 #endif
     if (mFlag & AUDIO_OUTPUT_FLAG_LPA) {
         requestAndWaitForEffectsThreadExit();
-        mAudioFlinger->deregisterClient(mAudioFlingerClient);
         mAudioFlinger->deleteEffectSession();
         deallocateBufPool();
 #ifdef SRS_PROCESSING
     } else if (mFlag & AUDIO_OUTPUT_FLAG_TUNNEL) {
         requestAndWaitForEffectsThreadExit();
-        mAudioFlinger->deregisterClient(mAudioFlingerClient);
         mAudioFlinger->deleteEffectSession();
 #endif
     }
