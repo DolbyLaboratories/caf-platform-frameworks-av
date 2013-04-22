@@ -346,7 +346,7 @@ MPEG4Writer::MPEG4Writer(const char *filename)
       mOffset(0),
       mMdatOffset(0),
       mEstimatedMoovBoxSize(0),
-      mInterleaveDurationUs(1000000),
+      mInterleaveDurationUs(100000),
       mLatitudex10000(0),
       mLongitudex10000(0),
       mAreGeoTagsAvailable(false),
@@ -355,6 +355,12 @@ MPEG4Writer::MPEG4Writer(const char *filename)
     mFd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
     if (mFd >= 0) {
         mInitCheck = OK;
+    }
+
+    char value[PROPERTY_VALUE_MAX];
+    if (property_get("persist.interleave.dur", value, NULL) &&
+        atoi(value) > 0) {
+        mInterleaveDurationUs = atoi(value);
     }
 }
 
@@ -370,11 +376,16 @@ MPEG4Writer::MPEG4Writer(int fd)
       mOffset(0),
       mMdatOffset(0),
       mEstimatedMoovBoxSize(0),
-      mInterleaveDurationUs(1000000),
+      mInterleaveDurationUs(100000),
       mLatitudex10000(0),
       mLongitudex10000(0),
       mAreGeoTagsAvailable(false),
       mStartTimeOffsetMs(-1) {
+    char value[PROPERTY_VALUE_MAX];
+    if (property_get("persist.interleave.dur", value, NULL) &&
+        atoi(value) > 0) {
+        mInterleaveDurationUs = atoi(value);
+    }
 }
 
 MPEG4Writer::~MPEG4Writer() {
