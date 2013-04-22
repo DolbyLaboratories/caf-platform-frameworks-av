@@ -6293,7 +6293,7 @@ void AudioFlinger::DirectAudioTrack::mute(bool muted) {
 
 void AudioFlinger::DirectAudioTrack::setVolume(float left, float right) {
     ALOGV("DirectAudioTrack::setVolume left: %f, right: %f", left, right);
-    if(mOutputDesc && mOutputDesc->mActive) {
+    if(mOutputDesc && mOutputDesc->mActive &&  mOutputDesc->stream) {
         mOutputDesc->mVolumeLeft = left;
         mOutputDesc->mVolumeRight = right;
         mOutputDesc->stream->set_volume(mOutputDesc->stream,
