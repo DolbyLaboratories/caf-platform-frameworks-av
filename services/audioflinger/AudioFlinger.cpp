@@ -646,11 +646,11 @@ Exit:
 
 void AudioFlinger::deleteEffectSession()
 {
-    Mutex::Autolock _l(mLock);
     ALOGV("deleteSession");
     // -2 is invalid session ID
     mLPASessionId = -2;
     if (mLPAEffectChain != NULL) {
+        mLPAEffectChain->lock();
         mLPAEffectChain->setLPAFlag(false);
         size_t i, numEffects = mLPAEffectChain->getNumEffects();
         for(i = 0; i < numEffects; i++) {
@@ -664,6 +664,7 @@ void AudioFlinger::deleteEffectSession()
             effect->configure();
         }
         mLPAEffectChain.clear();
+        mLPAEffectChain->unlock();
         mLPAEffectChain = NULL;
     }
 }
@@ -1551,10 +1552,8 @@ status_t AudioFlinger::ThreadBase::setParameters(const String8& keyValuePairs)
 }
 
 void AudioFlinger::ThreadBase::effectConfigChanged() {
-    mAudioFlinger->mLock.lock();
     ALOGV("New effect is being added to LPA chain, Notifying LPA Direct Track");
     mAudioFlinger->audioConfigChanged_l(AudioSystem::EFFECT_CONFIG_CHANGED, 0, NULL);
-    mAudioFlinger->mLock.unlock();
 }
 
 void AudioFlinger::ThreadBase::sendIoConfigEvent(int event, int param)
