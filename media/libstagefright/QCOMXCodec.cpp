@@ -555,6 +555,8 @@ void QCOMXCodec::setQCSpecificVideoFormat(const sp<MetaData> &meta, sp<IOMX> OMX
     int32_t arbitraryMode = 1;
     bool success = meta->findInt32(kKeyUseArbitraryMode, &arbitraryMode);
     bool useArbitraryMode = true;
+    char qcComponentName[] = "OMX.qcom.video.decoder.";
+
     if (success) {
         useArbitraryMode = arbitraryMode ? true : false;
     }
@@ -574,11 +576,7 @@ void QCOMXCodec::setQCSpecificVideoFormat(const sp<MetaData> &meta, sp<IOMX> OMX
         }
     }
 
-    // Enable timestamp reordering only for AVI/mpeg4 and vc1 clips
-    const char *fileFormat;
-    success = meta->findCString(kKeyFileFormat, &fileFormat);
-    if (!strcmp(componentName, "OMX.qcom.video.decoder.vc1") ||
-        (success && !strncmp(fileFormat, "video/avi", 9))) {
+    if (!strncmp(componentName, qcComponentName, sizeof(qcComponentName) - 1)) {
         ALOGI("Enabling timestamp reordering");
         QOMX_INDEXTIMESTAMPREORDER reorder;
         InitOMXParams(&reorder);
