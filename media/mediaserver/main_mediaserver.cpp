@@ -28,6 +28,9 @@
 #include "CameraService.h"
 #include "MediaPlayerService.h"
 #include "AudioPolicyService.h"
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+#include "ListenService.h"
+#endif
 
 using namespace android;
 
@@ -40,6 +43,10 @@ int main(int argc, char** argv)
     AudioFlinger::instantiate();
     MediaPlayerService::instantiate();
     CameraService::instantiate();
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    ALOGI("ListenService instantiated");
+    ListenService::instantiate();
+#endif
     AudioPolicyService::instantiate();
     ProcessState::self()->startThreadPool();
     IPCThreadState::self()->joinThreadPool();
