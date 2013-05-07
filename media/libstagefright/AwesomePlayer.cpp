@@ -1599,6 +1599,12 @@ status_t AwesomePlayer::initAudioDecoder() {
             ALOGI("Tunnel Mode Audio Enabled");
             mIsTunnelAudio = true;
         }
+#ifdef NO_TUNNEL_MODE_FOR_MULTICHANNEL
+        if (nchannels > 2 || nchannels <= 0) {
+            ALOGD("Use tunnel mode only for mono and stereo channels");
+            mIsTunnelAudio = false;
+        }
+#endif
     }
     else
        ALOGD("Normal Audio Playback");
