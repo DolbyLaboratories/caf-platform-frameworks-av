@@ -13,6 +13,25 @@
 ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
+**
+** This file was modified by Dolby Laboratories, Inc. The portions of the
+** code that are surrounded by "DOLBY..." are copyrighted and
+** licensed separately, as follows:
+**
+**  (C) 2011-2013 Dolby Laboratories, Inc.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**    http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
 */
 
 
@@ -85,6 +104,10 @@
 
 #include "SchedulingPolicyService.h"
 
+#ifdef DOLBY_DAP_QDSP
+#include <dlfcn.h>
+#define DS_PARAM_PREGAIN 0x10
+#endif // DOLBY_DAP_QDSP
 // ----------------------------------------------------------------------------
 
 // Note: the following macro is used for extremely verbose logging message.  In
@@ -174,6 +197,14 @@ static const int kPriorityFastMixer = 3;
 // See the client's minBufCount and mNotificationFramesAct calculations for details.
 static const int kFastTrackMultiplier = 2;
 
+#ifdef DOLBY_DAP_QDSP
+// NOTE: Double check whether the symbol names are consistent with the definitions below or not.
+static const char kDsNativeOpenSymbol[] = "_ZN7android8DsNative4openEv";
+static const char kDsNativeCloseSymbol[] = "_ZN7android8DsNative5closeEv";
+static const char kDsNativeSetParamSymbol[] = "_ZN7android8DsNative12setParameterEiPKv";
+static void *gDsNativeLib = NULL;
+static status_t (*gDsNativeSetParam)(int, const void *) = NULL;
+#endif // DOLBY_DAP_QDSP
 // ----------------------------------------------------------------------------
 
 #ifdef ADD_BATTERY_DATA
@@ -230,6 +261,24 @@ AudioFlinger::AudioFlinger()
       mMode(AUDIO_MODE_INVALID),
       mBtNrecIsOff(false)
 {
+#ifdef DOLBY_DAP_QDSP
+    gDsNativeLib = dlopen("libds_native.so", RTLD_NOW | RTLD_GLOBAL);
+    if (gDsNativeLib == NULL) {
+        ALOGE("unable to dlopen libds_native.so");
+    } else {
+        void (*dsNativeOpen)() = NULL;
+        dsNativeOpen = (void (*)()) dlsym(gDsNativeLib, kDsNativeOpenSymbol);
+        if (dsNativeOpen == NULL) {
+            ALOGE("Fail to get DsNative::open symbol");
+        } else {
+            (*dsNativeOpen)();
+        }
+        gDsNativeSetParam = (status_t (*)(int, const void*)) dlsym(gDsNativeLib, kDsNativeSetParamSymbol);
+        if (gDsNativeSetParam == NULL) {
+            ALOGE("Fail to get DsNative::setParameter symbol");
+        }
+    }
+#endif // DOLBY_DAP_QDSP
 }
 
 void AudioFlinger::onFirstRef()
@@ -271,6 +320,20 @@ AudioFlinger::~AudioFlinger()
         audio_hw_device_close(mAudioHwDevs.valueAt(i)->hwDevice());
         delete mAudioHwDevs.valueAt(i);
     }
+#ifdef DOLBY_DAP_QDSP
+    if (gDsNativeLib != NULL) {
+        void (*dsNativeClose)() = NULL;
+        dsNativeClose = (void (*)()) dlsym(gDsNativeLib, kDsNativeCloseSymbol);
+        if (dsNativeClose == NULL) {
+            ALOGE("Fail to get DsNative::close symbol");
+        } else {
+            (*dsNativeClose)();
+        }
+        dlclose(gDsNativeLib);
+        gDsNativeLib = NULL;
+        gDsNativeSetParam = NULL;
+    }
+#endif // DOLBY_DAP_QDSP
 }
 
 static const char * const audio_interfaces[] = {
@@ -2913,6 +2976,14 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
     float masterVolume = mMasterVolume;
     bool masterMute = mMasterMute;
 
+#if defined(DOLBY_DAP_QDSP)
+    // The DS pregain for the left channel.
+    uint32_t vl_ds_pregain = 0;
+    // The DS pregain for the right channel.
+    uint32_t vr_ds_pregain = 0;
+    // The number of pausing tracks.
+    size_t   pausingTracks = 0;
+#endif // DOLBY_DAP_QDSP
     if (masterMute) {
         masterVolume = 0;
     }
@@ -3165,6 +3236,9 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
                 mStreamTypes[track->streamType()].mute) {
                 vl = vr = va = 0;
                 if (track->isPausing()) {
+#if defined(DOLBY_DAP_QDSP)
+                    pausingTracks++;
+#endif // DOLBY_DAP_QDSP
                     track->setPaused();
                 }
             } else {
@@ -3212,6 +3286,11 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
                 track->mHasVolumeController = false;
             }
 
+#if defined(DOLBY_DAP_QDSP)
+            // Select the maximum volume as the pregain by scanning all the active audio tracks.
+            vl_ds_pregain = (vl_ds_pregain >= vl) ? vl_ds_pregain : vl;
+            vr_ds_pregain = (vr_ds_pregain >= vr) ? vr_ds_pregain : vr;
+#endif // DOLBY_DAP_QDSP
             // Convert volumes from 8.24 to 4.12 format
             // This additional clamping is needed in case chain->setVolume_l() overshot
             vl = (vl + (1 << 11)) >> 12;
@@ -3385,6 +3464,53 @@ track_is_ready: ;
     if (fastTracks > 0) {
         mixerStatus = MIXER_TRACKS_READY;
     }
+#if defined(DOLBY_DAP_QDSP)
+    // CodeAuroraForum-based version of pregain code.
+    /*
+    bool directTrackActive = false;
+    uint32_t vl_direct_track = 0;
+    uint32_t vr_direct_track = 0;
+    if (!mAudioFlinger->mDirectAudioTracks.isEmpty()) {
+        size_t size = mAudioFlinger->mDirectAudioTracks.size();
+        AudioSessionDescriptor *desc = NULL;
+        for (int i = 0; i < size; i++) {
+            desc = mAudioFlinger->mDirectAudioTracks.valueAt(i);
+            if (desc->mActive) {
+                uint32_t volumeL = (uint32_t)(desc->mVolumeLeft * mStreamTypes[desc->mStreamType].volume * (1 << 24));
+                uint32_t volumeR = (uint32_t)(desc->mVolumeRight* mStreamTypes[desc->mStreamType].volume * (1 << 24));
+                vl_direct_track = (vl_direct_track >= volumeL ? vl_direct_track : volumeL);
+                vr_direct_track = (vr_direct_track >= volumeR ? vr_direct_track : volumeR);
+                directTrackActive = true;
+                ALOGD("DS Pregain: direct audio track volumeLeft = %u, volumeRight = %u", vl_direct_track, vr_direct_track);
+            }
+        }
+    }
+    if (mixedTracks != 0 && mixedTracks != pausingTracks) {
+        uint32_t volume[2];
+        volume[0] = (vl_ds_pregain >= vl_direct_track ? vl_ds_pregain : vl_direct_track);
+        volume[1] = (vr_ds_pregain >= vr_direct_track ? vr_ds_pregain : vr_direct_track);
+        if (gDsNativeSetParam != NULL) {
+            (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
+        }
+    } else if (directTrackActive) {
+        uint32_t volume[2];
+        volume[0] = vl_direct_track;
+        volume[1] = vr_direct_track;
+        if (gDsNativeSetParam != NULL) {
+            (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
+        }
+    }
+    */
+    // AOSP-testable version of pregain code.
+    if (mixedTracks != 0 && mixedTracks != pausingTracks) {
+        uint32_t volume[2];
+        volume[0] = vl_ds_pregain;
+        volume[1] = vr_ds_pregain;
+        if (gDsNativeSetParam != NULL) {
+            (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
+        }
+    }
+#endif // DOLBY_DAP_QDSP
     return mixerStatus;
 }
 
