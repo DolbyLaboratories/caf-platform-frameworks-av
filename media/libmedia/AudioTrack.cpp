@@ -431,10 +431,18 @@ uint32_t AudioTrack::frameCount() const
 
 size_t AudioTrack::frameSize() const
 {
-    if (audio_is_linear_pcm(mFormat)) {
-        return channelCount()*audio_bytes_per_sample(mFormat);
+    if ((audio_stream_type_t)mStreamType == AUDIO_STREAM_VOICE_CALL) {
+       if (audio_is_linear_pcm(mFormat)) {
+          return channelCount()*audio_bytes_per_sample(mFormat);
+       } else {
+          return channelCount()*sizeof(int16_t);
+       }
     } else {
-        return sizeof(uint8_t);
+        if (audio_is_linear_pcm(mFormat)) {
+            return channelCount()*audio_bytes_per_sample(mFormat);
+        } else {
+            return sizeof(uint8_t);
+        }
     }
 }
 
@@ -520,7 +528,7 @@ void AudioTrack::stop()
     AutoMutex lock(mLock);
     if (mActive) {
         if(mDirectTrack != NULL) {
-	    mActive = false;
+        mActive = false;
             mDirectTrack->stop();
         } else if (mAudioTrack != NULL) {
             mActive = false;
