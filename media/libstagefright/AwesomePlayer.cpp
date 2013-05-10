@@ -205,6 +205,7 @@ AwesomePlayer::AwesomePlayer()
       mVideoBuffer(NULL),
       mDecryptHandle(NULL),
       mLastVideoTimeUs(-1),
+      mFrameDurationUs(16000),
       mTextDriver(NULL) {
     CHECK_EQ(mClient.connect(), (status_t)OK);
 
@@ -625,7 +626,7 @@ void AwesomePlayer::reset_l() {
 
     mBitrate = -1;
     mLastVideoTimeUs = -1;
-
+    mFrameDurationUs = 16000;
     {
         Mutex::Autolock autoLock(mStatsLock);
         mStats.mFd = -1;
@@ -1845,6 +1846,8 @@ void AwesomePlayer::finishSeekIfNecessary(int64_t videoTimeUs) {
 
 void AwesomePlayer::onVideoEvent() {
     ATRACE_CALL();
+    int64_t eventStartTimeUs = mSystemTimeSource.getRealTimeUs();
+    int64_t earlyGapUs = 1000; // gap for in case of event scheduling lag
     Mutex::Autolock autoLock(mLock);
     if (!mVideoEventPending) {
         // The event has been cancelled in reset_l() but had already
@@ -1954,7 +1957,11 @@ void AwesomePlayer::onVideoEvent() {
 
     int64_t timeUs;
     CHECK(mVideoBuffer->meta_data()->findInt64(kKeyTime, &timeUs));
-
+    if ((mLastVideoTimeUs != timeUs)
+          && (mLastVideoTimeUs > 0)
+          && (mSeeking == NO_SEEK)) {
+        mFrameDurationUs = timeUs - mLastVideoTimeUs;
+    }
     mLastVideoTimeUs = timeUs;
 
     if (mSeeking == SEEK_VIDEO_ONLY) {
@@ -2082,7 +2089,9 @@ void AwesomePlayer::onVideoEvent() {
                     if(!(mFlags & AT_EOS)) logLate(timeUs,nowUs,latenessUs);
                 }
 
-                postVideoEvent_l();
+                int64_t delayUs = mFrameDurationUs -(mSystemTimeSource.getRealTimeUs() - eventStartTimeUs) - latenessUs - earlyGapUs;
+                delayUs = delayUs > 10000 ? 10000 : delayUs;
+                postVideoEvent_l(delayUs > 0 ? delayUs : 0);
                 return;
             }
         }
@@ -2142,7 +2151,9 @@ void AwesomePlayer::onVideoEvent() {
         return;
     }
 
-    postVideoEvent_l();
+    int64_t delayUs = mFrameDurationUs - (mSystemTimeSource.getRealTimeUs() - eventStartTimeUs) - latenessUs - earlyGapUs;
+    delayUs = delayUs > 10000 ? 10000 : delayUs;
+    postVideoEvent_l(delayUs > 0 ? delayUs : 0);
 }
 
 void AwesomePlayer::postVideoEvent_l(int64_t delayUs) {
