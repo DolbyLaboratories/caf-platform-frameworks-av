@@ -3857,6 +3857,43 @@ track_is_ready: ;
     if (fastTracks > 0) {
         mixerStatus = MIXER_TRACKS_READY;
     }
+#ifdef DOLBY_DAP
+    bool directTrackActive = false;
+    uint32_t vl_direct_track = 0;
+    uint32_t vr_direct_track = 0;
+    if (!mAudioFlinger->mDirectAudioTracks.isEmpty()) {
+        size_t size = mAudioFlinger->mDirectAudioTracks.size();
+        AudioSessionDescriptor *desc = NULL;
+        for (int i = 0; i < size; i++) {
+            desc = mAudioFlinger->mDirectAudioTracks.valueAt(i);
+            if (desc->mActive) {
+                uint32_t volumeL = (uint32_t)(desc->mVolumeLeft * mStreamTypes[desc->mStreamType].volume * (1 << 24));
+                uint32_t volumeR = (uint32_t)(desc->mVolumeRight* mStreamTypes[desc->mStreamType].volume * (1 << 24));
+                vl_direct_track = (vl_direct_track >= volumeL ? vl_direct_track : volumeL);
+                vr_direct_track = (vr_direct_track >= volumeR ? vr_direct_track : volumeR);
+                directTrackActive = true;
+                ALOGD("DS Pregain: direct audio track volumeLeft = %u, volumeRight = %u", vl_direct_track,
+vr_direct_track);
+            }
+        }
+    }
+    if (mixedTracks != 0 && mixedTracks != pausingTracks) {
+        uint32_t volume[2];
+        volume[0] = (vl_ds_pregain >= vl_direct_track ? vl_ds_pregain : vl_direct_track);
+        volume[1] = (vr_ds_pregain >= vr_direct_track ? vr_ds_pregain : vr_direct_track);
+        if (gDsNativeSetParam != NULL) {
+            (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
+        }
+    } else if (directTrackActive) {
+        uint32_t volume[2];
+        volume[0] = vl_direct_track;
+        volume[1] = vr_direct_track;
+        if (gDsNativeSetParam != NULL) {
+            (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
+        }
+    }
+    return mixerStatus;
+#endif // DOLBY_DAP
 #if defined(DOLBY_DAP_QDSP)
     // AOSP-testable version of pregain code.
     if (mixedTracks != 0 && mixedTracks != pausingTracks) {
