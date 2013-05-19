@@ -3867,8 +3867,8 @@ track_is_ready: ;
         for (int i = 0; i < size; i++) {
             desc = mAudioFlinger->mDirectAudioTracks.valueAt(i);
             if (desc->mActive) {
-                uint32_t volumeL = (uint32_t)(desc->mVolumeLeft * mStreamTypes[desc->mStreamType].volume * (1 << 24));
-                uint32_t volumeR = (uint32_t)(desc->mVolumeRight* mStreamTypes[desc->mStreamType].volume * (1 << 24));
+                uint32_t volumeL = (uint32_t)(desc->mVolumeLeft * desc->mVolumeScale * (1 << 24));
+                uint32_t volumeR = (uint32_t)(desc->mVolumeRight* desc->mVolumeScale * (1 << 24));
                 vl_direct_track = (vl_direct_track >= volumeL ? vl_direct_track : volumeL);
                 vr_direct_track = (vr_direct_track >= volumeR ? vr_direct_track : volumeR);
                 directTrackActive = true;
