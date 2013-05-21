@@ -337,7 +337,7 @@ private:
     public:
                             NotificationClient(const sp<AudioFlinger>& audioFlinger,
                                                 const sp<IAudioFlingerClient>& client,
-                                                sp<IBinder> binder);
+                                                pid_t pid);
         virtual             ~NotificationClient();
 
                 sp<IAudioFlingerClient> audioFlingerClient() const { return mAudioFlingerClient; }
@@ -350,7 +350,7 @@ private:
                             NotificationClient& operator = (const NotificationClient&);
 
         const sp<AudioFlinger>  mAudioFlinger;
-        sp<IBinder>             mBinder;
+        const pid_t             mPid;
         const sp<IAudioFlingerClient> mAudioFlingerClient;
     };
 
@@ -1444,6 +1444,7 @@ private:
         virtual void        setVolume(float left, float right);
         virtual int64_t     getTimeStamp();
         virtual void        postEOS(int64_t delayUs);
+        void                signalEffect();
 
         virtual status_t    onTransact(
             uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags);
@@ -1557,7 +1558,7 @@ private:
     };
 
                 void        removeClient_l(pid_t pid);
-                void        removeNotificationClient(sp<IBinder> binder);
+                void        removeNotificationClient(pid_t pid);
 
 
     // record thread
@@ -2204,7 +2205,7 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
 
                 DefaultKeyedVector< audio_io_handle_t, sp<RecordThread> >    mRecordThreads;
 
-                DefaultKeyedVector< sp<IBinder>, sp<NotificationClient> >    mNotificationClients;
+                DefaultKeyedVector< pid_t, sp<NotificationClient> >    mNotificationClients;
                 volatile int32_t                    mNextUniqueId;  // updated by android_atomic_inc
                 audio_mode_t                        mMode;
                 bool                                mBtNrecIsOff;
