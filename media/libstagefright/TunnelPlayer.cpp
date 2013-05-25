@@ -110,6 +110,7 @@ mObserver(observer) {
 
     mSeekTimeUs = 0;
     mIsAudioRouted = false;
+    extractorThreadAlive = false;
 
     mHasVideo = hasVideo;
     initCheck = true;
@@ -285,11 +286,10 @@ status_t TunnelPlayer::start(bool sourceAlreadyStarted) {
         }
     }
 
-    //Create decoder and a2dp notification thread and initialize all the
+    //Create extractor thread, read and initialize all the
     //mutexes and coditional variables
     createThreads();
     ALOGV("All Threads Created.");
-
     // We allow an optional INFO_FORMAT_CHANGED at the very beginning
     // of playback, if there is one, getFormat below will retrieve the
     // updated format, if there isn't, we'll stash away the valid buffer
@@ -381,9 +381,10 @@ status_t TunnelPlayer::start(bool sourceAlreadyStarted) {
     mIsAudioRouted = true;
     mStarted = true;
     mAudioSink->start();
+    pthread_mutex_lock(&extractor_mutex);
     ALOGV("Waking up extractor thread");
     pthread_cond_signal(&extractor_cv);
-
+    pthread_mutex_unlock(&extractor_mutex);
     return OK;
 }
 
@@ -590,7 +591,7 @@ void TunnelPlayer::extractorThreadEntry() {
     prctl(PR_SET_NAME, (unsigned long)"Extractor Thread", 0, 0, 0);
 
     ALOGV("extractorThreadEntry wait for signal \n");
-    if (!mStarted) {
+    if (!mStarted && !killExtractorThread) {
         pthread_cond_wait(&extractor_cv, &extractor_mutex);
     }
     ALOGV("extractorThreadEntry ready to work \n");
@@ -877,22 +878,26 @@ bool TunnelPlayer::getMediaTimeMapping(
 
 //lock has been taken in reset() to sync with onpausetimeout
 void TunnelPlayer::requestAndWaitForExtractorThreadExit() {
+
     ALOGV("requestAndWaitForExtractorThreadExit -1");
 
     if (!extractorThreadAlive)
         return;
 
-    killExtractorThread = true;
 
     ALOGV("requestAndWaitForExtractorThreadExit +0");
     if (mIsAudioRouted && !mReachedOutputEOS) {
         mAudioSink->flush();
     }
 
+    mLock.unlock();
+
+    pthread_mutex_lock(&extractor_mutex);
+    killExtractorThread = true;
     ALOGV("requestAndWaitForExtractorThreadExit +1");
     pthread_cond_signal(&extractor_cv);
+    pthread_mutex_unlock(&extractor_mutex);
     ALOGV("requestAndWaitForExtractorThreadExit +2");
-    mLock.unlock();
     pthread_join(extractorThread,NULL);
     mLock.lock();
     ALOGV("requestAndWaitForExtractorThreadExit +3");
