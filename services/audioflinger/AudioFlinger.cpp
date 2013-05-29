@@ -215,6 +215,8 @@ static const char kDsNativeCloseSymbol[] = "_ZN7android8DsNative5closeEv";
 static const char kDsNativeSetParamSymbol[] = "_ZN7android8DsNative12setParameterEiPKv";
 static void *gDsNativeLib = NULL;
 static status_t (*gDsNativeSetParam)(int, const void *) = NULL;
+static bool      gMixerTracksActive        = false;
+static bool      gDirectOutputTrackActive  = false;
 #endif // DOLBY_DAP_QDSP
 // ----------------------------------------------------------------------------
 
@@ -1091,6 +1093,15 @@ status_t AudioFlinger::setStreamVolume(audio_stream_type_t stream, float value,
                 desc->stream->set_volume(desc->stream,
                                          desc->mVolumeLeft * mStreamTypes[stream].volume,
                                          desc->mVolumeRight* mStreamTypes[stream].volume);
+#ifdef DOLBY_DAP_QDSP
+                uint32_t volume[2];
+                volume[0] = (uint32_t)(desc->mVolumeLeft * desc->mVolumeScale * (1 << 24));
+                volume[1] = (uint32_t)(desc->mVolumeRight* desc->mVolumeScale * (1 << 24));
+
+                if (gDsNativeSetParam != NULL && !gMixerTracksActive && !gDirectOutputTrackActive) {
+                    (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
+                }
+#endif // DOLBY_DAP_QDSP
                 return NO_ERROR;
             }
         }
@@ -3047,6 +3058,25 @@ if (mType == MIXER) {
                     IPCThreadState::self()->flushCommands();
 
                     clearOutputTracks();
+#ifdef DOLBY_DAP_QDSP
+                    bool primaryMixerThread = false;
+                    for (size_t i = 0; i < mAudioFlinger->mPlaybackThreads.size(); i++) {
+                        PlaybackThread *thread = mAudioFlinger->mPlaybackThreads.valueAt(i).get();
+                        AudioStreamOut *output = thread->mOutput;
+                        if (output != NULL && output->audioHwDev == mAudioFlinger->mPrimaryHardwareDev) {
+                            if(!strncmp(mName, thread->mName, sizeof(mName)))
+                                primaryMixerThread = true;
+                            break;
+                        }
+                    }
+
+                    if (mType == MIXER && primaryMixerThread) {
+                        gMixerTracksActive = false;
+                    }
+                    if (mType == DIRECT) {
+                        gDirectOutputTrackActive = false;
+                    }
+#endif // DOLBY_DAP_QDSP
 
                     if (exitPending()) break;
 
@@ -3375,13 +3405,24 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
     float masterVolume = mMasterVolume;
     bool masterMute = mMasterMute;
 
-#if defined(DOLBY_DAP_QDSP)
+#ifdef DOLBY_DAP_QDSP
     // The DS pregain for the left channel.
     uint32_t vl_ds_pregain = 0;
     // The DS pregain for the right channel.
     uint32_t vr_ds_pregain = 0;
     // The number of pausing tracks.
     size_t   pausingTracks = 0;
+    // pregain computed only for playback through primary output in mixer thread
+    bool computePreGain = false;
+    for (size_t i = 0; i < mAudioFlinger->mPlaybackThreads.size(); i++) {
+        PlaybackThread *thread = mAudioFlinger->mPlaybackThreads.valueAt(i).get();
+        AudioStreamOut *output = thread->mOutput;
+        if (output != NULL && output->audioHwDev == mAudioFlinger->mPrimaryHardwareDev) {
+            if(!strncmp(mName, thread->mName, sizeof(mName)))
+               computePreGain = true;
+            break;
+        }
+    }
 #endif // DOLBY_DAP_QDSP
     if (masterMute) {
         masterVolume = 0;
@@ -3640,7 +3681,7 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
                 mStreamTypes[track->streamType()].mute) {
                 vl = vr = va = 0;
                 if (track->isPausing()) {
-#if defined(DOLBY_DAP_QDSP)
+#ifdef DOLBY_DAP_QDSP
                     pausingTracks++;
 #endif // DOLBY_DAP_QDSP
                     track->setPaused();
@@ -3690,7 +3731,7 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
                 track->mHasVolumeController = false;
             }
 
-#if defined(DOLBY_DAP_QDSP)
+#ifdef DOLBY_DAP_QDSP
             // Select the maximum volume as the pregain by scanning all the active audio tracks.
             vl_ds_pregain = (vl_ds_pregain >= vl) ? vl_ds_pregain : vl;
             vr_ds_pregain = (vr_ds_pregain >= vr) ? vr_ds_pregain : vr;
@@ -3868,7 +3909,13 @@ track_is_ready: ;
     if (fastTracks > 0) {
         mixerStatus = MIXER_TRACKS_READY;
     }
-#ifdef DOLBY_DAP
+#ifdef DOLBY_DAP_QDSP
+    if (!computePreGain)
+        return mixerStatus;
+
+    if (gDirectOutputTrackActive)
+        return mixerStatus;
+
     bool directTrackActive = false;
     uint32_t vl_direct_track = 0;
     uint32_t vr_direct_track = 0;
@@ -3877,14 +3924,13 @@ track_is_ready: ;
         AudioSessionDescriptor *desc = NULL;
         for (int i = 0; i < size; i++) {
             desc = mAudioFlinger->mDirectAudioTracks.valueAt(i);
-            if (desc->mActive) {
+            if (desc->mActive /*&& desc->mStreamType == AUDIO_STREAM_MUSIC*/) {
                 uint32_t volumeL = (uint32_t)(desc->mVolumeLeft * desc->mVolumeScale * (1 << 24));
                 uint32_t volumeR = (uint32_t)(desc->mVolumeRight* desc->mVolumeScale * (1 << 24));
                 vl_direct_track = (vl_direct_track >= volumeL ? vl_direct_track : volumeL);
                 vr_direct_track = (vr_direct_track >= volumeR ? vr_direct_track : volumeR);
                 directTrackActive = true;
-                ALOGD("DS Pregain: direct audio track volumeLeft = %u, volumeRight = %u", vl_direct_track,
-vr_direct_track);
+                ALOGV("DS Pregain: direct audio track volumeLeft = %u, volumeRight = %u", vl_direct_track, vr_direct_track);
             }
         }
     }
@@ -3895,6 +3941,7 @@ vr_direct_track);
         if (gDsNativeSetParam != NULL) {
             (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
         }
+        gMixerTracksActive = true;
     } else if (directTrackActive) {
         uint32_t volume[2];
         volume[0] = vl_direct_track;
@@ -3902,18 +3949,7 @@ vr_direct_track);
         if (gDsNativeSetParam != NULL) {
             (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
         }
-    }
-    return mixerStatus;
-#endif // DOLBY_DAP
-#if defined(DOLBY_DAP_QDSP)
-    // AOSP-testable version of pregain code.
-    if (mixedTracks != 0 && mixedTracks != pausingTracks) {
-        uint32_t volume[2];
-        volume[0] = vl_ds_pregain;
-        volume[1] = vr_ds_pregain;
-        if (gDsNativeSetParam != NULL) {
-            (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
-        }
+        gMixerTracksActive = false;
     }
 #endif // DOLBY_DAP_QDSP
     return mixerStatus;
@@ -4251,6 +4287,16 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::DirectOutputThread::prep
         // The track died recently
         if (t == 0) return MIXER_IDLE;
 
+#ifdef DOLBY_DAP_QDSP
+        gDirectOutputTrackActive = true;
+        uint32_t volume[2];
+        volume[0] = (1<<24); // Full Scale
+        volume[1] = (1<<24); // Full Scale
+
+        if (gDsNativeSetParam != NULL) {
+            (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
+        }
+#endif // DOLBY_DAP_QDSP
         Track* const track = t.get();
         audio_track_cblk_t* cblk = track->cblk();
 
@@ -6537,6 +6583,15 @@ void AudioFlinger::DirectAudioTrack::setVolume(float left, float right) {
         mOutputDesc->stream->set_volume(mOutputDesc->stream,
                                     left * mOutputDesc->mVolumeScale,
                                     right* mOutputDesc->mVolumeScale);
+#ifdef DOLBY_DAP_QDSP
+        uint32_t volume[2];
+        volume[0] = (uint32_t)(mOutputDesc->mVolumeLeft * mOutputDesc->mVolumeScale * (1 << 24));
+        volume[1] = (uint32_t)(mOutputDesc->mVolumeRight* mOutputDesc->mVolumeScale * (1 << 24));
+
+        if (gDsNativeSetParam != NULL && !gMixerTracksActive && !gDirectOutputTrackActive) {
+            (*gDsNativeSetParam)(DS_PARAM_PREGAIN, volume);
+        }
+#endif // DOLBY_DAP_QDSP
     }
 }
 
