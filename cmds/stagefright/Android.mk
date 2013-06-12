@@ -38,6 +38,7 @@ LOCAL_C_INCLUDES:= \
 
 LOCAL_CFLAGS += -Wno-multichar
 ifdef DOLBY_UDC
+  LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media/mm-core/inc
   LOCAL_CFLAGS += -DDOLBY_UDC
 endif #DOLBY_UDC
 

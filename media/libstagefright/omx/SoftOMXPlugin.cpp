@@ -74,7 +74,7 @@ static const struct {
     { "OMX.google.flac.encoder", "flacenc", "audio_encoder.flac" },
 #ifdef DOLBY_UDC
     { "OMX.dolby.ac3.decoder", "ddpdec", "audio_decoder.ac3" },
-    { "OMX.dolby.ec3.decoder", "ddpdec", "audio_decoder.ec3" },
+    { "OMX.dolby.ec3.decoder", "ddpdec", "audio_decoder.eac3" },
 #endif // DOLBY_UDC
 };
 

@@ -56,7 +56,9 @@
 #include <OMX_Component.h>
 
 #include "include/avc_utils.h"
-
+#ifdef DOLBY_UDC
+ #include <QCMediaDefs.h>
+#endif //DOLBY_UDC
 namespace android {
 
 template<class T>
@@ -838,9 +840,9 @@ status_t ACodec::setComponentRole(
             "audio_decoder.g711alaw", "audio_encoder.g711alaw" },
 #ifdef DOLBY_UDC
         { MEDIA_MIMETYPE_AUDIO_AC3,
-            "audio_decoder.ac3", "audio_encoder.ac3" },
-        { MEDIA_MIMETYPE_AUDIO_EC3,
-            "audio_decoder.ec3", "audio_encoder.ec3" },
+            "audio_decoder.ac3", NULL },
+        { MEDIA_MIMETYPE_AUDIO_EAC3,
+            "audio_decoder.eac3", NULL },
 #endif // DOLBY_UDC
         { MEDIA_MIMETYPE_VIDEO_AVC,
             "video_decoder.avc", "video_encoder.avc" },

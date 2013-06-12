@@ -57,7 +57,7 @@ struct ElementaryStreamQueue {
         PCM_AUDIO,
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
         DDP_AC3_AUDIO,
-        DDP_EC3_AUDIO,
+        DDP_EAC3_AUDIO,
 #endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
     };
 

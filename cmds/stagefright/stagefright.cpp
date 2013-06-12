@@ -75,6 +75,10 @@
 #include <gui/SurfaceTextureClient.h>
 #include <gui/SurfaceComposerClient.h>
 
+#ifdef DOLBY_UDC
+#include <QCMediaDefs.h>
+#endif //DOLBY_UDC
+
 using namespace android;
 
 static long gNumRepetitions;
@@ -641,7 +645,7 @@ static void dumpCodecProfiles(const sp<IOMX>& omx, bool queryDecoders) {
 #ifdef DOLBY_UDC
         ,
         MEDIA_MIMETYPE_AUDIO_AC3,
-        MEDIA_MIMETYPE_AUDIO_EC3
+        MEDIA_MIMETYPE_AUDIO_EAC3
 #endif // DOLBY_UDC
     };
 

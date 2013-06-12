@@ -38,6 +38,7 @@ ifdef DOLBY_UDC
 #ifdef DOLBY_UDC_STREAMING_HLS
   LOCAL_CFLAGS += -DDOLBY_UDC
   LOCAL_CFLAGS += -DDOLBY_UDC_STREAMING_HLS
+  LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media/mm-core/inc
 #endif
 endif #DOLBY_UDC
 ifeq ($(TARGET_ARCH),arm)

@@ -574,8 +574,8 @@ MPEG2PSExtractor::Track::Track(
         case ATSParser::STREAMTYPE_DDP_AC3_AUDIO:
             mode = ElementaryStreamQueue::DDP_AC3_AUDIO;
             break;
-        case ATSParser::STREAMTYPE_DDP_EC3_AUDIO:
-            mode = ElementaryStreamQueue::DDP_EC3_AUDIO;
+        case ATSParser::STREAMTYPE_DDP_EAC3_AUDIO:
+            mode = ElementaryStreamQueue::DDP_EAC3_AUDIO;
             break;
 #endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
         case ATSParser::STREAMTYPE_MPEG1_VIDEO:
