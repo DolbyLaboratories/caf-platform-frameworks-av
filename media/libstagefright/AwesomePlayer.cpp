@@ -243,6 +243,7 @@ AwesomePlayer::~AwesomePlayer() {
     reset();
 
     mClient.disconnect();
+    ExtendedUtils::drainSecurePool();
 }
 
 void AwesomePlayer::printStats() {
@@ -332,6 +333,8 @@ status_t AwesomePlayer::setDataSource_l(
 
     mUri = uri;
 
+    ExtendedUtils::prefetchSecurePool(uri);
+
     if (headers) {
         mUriHeaders = *headers;
 
@@ -366,6 +369,10 @@ status_t AwesomePlayer::setDataSource(
     Mutex::Autolock autoLock(mLock);
 
     reset_l();
+
+    if (fd) {
+        ExtendedUtils::prefetchSecurePool(fd);
+    }
 
     sp<DataSource> dataSource = new FileSource(fd, offset, length);
 
