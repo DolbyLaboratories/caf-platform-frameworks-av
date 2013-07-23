@@ -368,6 +368,7 @@ private:
     void setAC3Format(int32_t numChannels, int32_t sampleRate);
 
     bool mNumBFrames;
+    bool mInSmoothStreamingMode;
 };
 
 struct CodecCapabilities {
