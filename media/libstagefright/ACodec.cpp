@@ -35,12 +35,14 @@
 #include <media/stagefright/NativeWindowWrapper.h>
 #include <media/stagefright/OMXClient.h>
 #include <media/stagefright/OMXCodec.h>
+#include <media/stagefright/ExtendedCodec.h>
 
 #include <media/hardware/HardwareAPI.h>
 
 #include <OMX_Component.h>
 
 #include "include/avc_utils.h"
+#include "include/QCUtils.h"
 
 namespace android {
 
@@ -366,7 +368,8 @@ ACodec::ACodec()
       mEncoderDelay(0),
       mEncoderPadding(0),
       mChannelMaskPresent(false),
-      mChannelMask(0) {
+      mChannelMask(0),
+      mInSmoothStreamingMode(false) {
     mUninitializedState = new UninitializedState(this);
     mLoadedState = new LoadedState(this);
     mLoadedToIdleState = new LoadedToIdleState(this);
@@ -1554,6 +1557,9 @@ status_t ACodec::setupVideoDecoder(
         return err;
     }
 
+    ExtendedCodec::enableSmoothStreaming(
+            mOMX, mNode, &mInSmoothStreamingMode, mComponentName.c_str());
+
     return OK;
 }
 
@@ -2306,6 +2312,12 @@ void ACodec::sendFormatChange() {
                     crop.top = rect.nTop;
                     crop.right = rect.nLeft + rect.nWidth;
                     crop.bottom = rect.nTop + rect.nHeight;
+
+                    if (mInSmoothStreamingMode) {
+                        QCUtils::updateNativeWindowBufferGeometry(
+                               mNativeWindow.get(), videoDef->nFrameWidth,
+                               videoDef->nFrameHeight, videoDef->eColorFormat);
+                    }
 
                     CHECK_EQ(0, native_window_set_crop(
                                 mNativeWindow.get(), &crop));
