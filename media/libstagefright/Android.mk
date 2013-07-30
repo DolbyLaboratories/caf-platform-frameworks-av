@@ -145,9 +145,6 @@ ifeq ($(TARGET_ENABLE_QC_AV_ENHANCEMENTS),true)
        LOCAL_SRC_FILES  += ExtendedWriter.cpp
        LOCAL_SRC_FILES  += QCMediaDefs.cpp
        LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media/mm-core/inc
-       ifeq ($(TARGET_ENABLE_DEFAULT_SMOOTHSTREAMING),true)
-               LOCAL_CFLAGS += -DENABLE_DEFAULT_SMOOTHSTREAMING
-       endif #TARGET_ENABLE_DEAFULT_SMOOTHSTREAMING
 endif #TARGET_ENABLE_QC_AV_ENHANCEMENTS
 
 include $(BUILD_SHARED_LIBRARY)
