@@ -611,27 +611,36 @@ void Camera2Client::setPreviewCallbackFlag(int flag) {
 
 void Camera2Client::setPreviewCallbackFlagL(Parameters &params, int flag) {
     status_t res = OK;
+
+    switch(params.state) {
+        case Parameters::STOPPED:
+        case Parameters::WAITING_FOR_PREVIEW_WINDOW:
+        case Parameters::PREVIEW:
+        case Parameters::STILL_CAPTURE:
+            // OK
+            break;
+        default:
+            if (flag & CAMERA_FRAME_CALLBACK_FLAG_ENABLE_MASK) {
+                ALOGE("%s: Camera %d: Can't use preview callbacks "
+                        "in state %d", __FUNCTION__, mCameraId, params.state);
+                return;
+            }
+    }
+
     if (flag & CAMERA_FRAME_CALLBACK_FLAG_ONE_SHOT_MASK) {
         ALOGV("%s: setting oneshot", __FUNCTION__);
         params.previewCallbackOneShot = true;
     }
     if (params.previewCallbackFlags != (uint32_t)flag) {
         params.previewCallbackFlags = flag;
-        switch(params.state) {
-        case Parameters::PREVIEW:
+
+        if (params.state == Parameters::PREVIEW) {
             res = startPreviewL(params, true);
-            break;
-        case Parameters::RECORD:
-        case Parameters::VIDEO_SNAPSHOT:
-            res = startRecordingL(params, true);
-            break;
-        default:
-            break;
-        }
-        if (res != OK) {
-            ALOGE("%s: Camera %d: Unable to refresh request in state %s",
-                    __FUNCTION__, mCameraId,
-                    Parameters::getStateName(params.state));
+            if (res != OK) {
+                ALOGE("%s: Camera %d: Unable to refresh request in state %s",
+                        __FUNCTION__, mCameraId,
+                        Parameters::getStateName(params.state));
+            }
         }
     }
 
@@ -682,10 +691,46 @@ status_t Camera2Client::startPreviewL(Parameters &params, bool restart) {
         return res;
     }
 
+    // We could wait to create the JPEG output stream until first actual use
+    // (first takePicture call). However, this would substantially increase the
+    // first capture latency on HAL3 devices, and potentially on some HAL2
+    // devices. So create it unconditionally at preview start. As a drawback,
+    // this increases gralloc memory consumption for applications that don't
+    // ever take a picture.
+    // TODO: Find a better compromise, though this likely would involve HAL
+    // changes.
+    res = updateProcessorStream(mJpegProcessor, params);
+    if (res != OK) {
+        ALOGE("%s: Camera %d: Can't pre-configure still image "
+                "stream: %s (%d)",
+                __FUNCTION__, mCameraId, strerror(-res), res);
+        return res;
+    }
+
     Vector<uint8_t> outputStreams;
     bool callbacksEnabled = params.previewCallbackFlags &
         CAMERA_FRAME_CALLBACK_FLAG_ENABLE_MASK;
     if (callbacksEnabled) {
+        // Can't have recording stream hanging around when enabling callbacks,
+        // since it exceeds the max stream count on some devices.
+        if (mStreamingProcessor->getRecordingStreamId() != NO_STREAM) {
+            ALOGV("%s: Camera %d: Clearing out recording stream before "
+                    "creating callback stream", __FUNCTION__, mCameraId);
+            res = mStreamingProcessor->stopStream();
+            if (res != OK) {
+                ALOGE("%s: Camera %d: Can't stop streaming to delete "
+                        "recording stream", __FUNCTION__, mCameraId);
+                return res;
+            }
+            res = mStreamingProcessor->deleteRecordingStream();
+            if (res != OK) {
+                ALOGE("%s: Camera %d: Unable to delete recording stream before "
+                        "enabling callbacks: %s (%d)", __FUNCTION__, mCameraId,
+                        strerror(-res), res);
+                return res;
+            }
+        }
+
         res = mCallbackProcessor->updateStream(params);
         if (res != OK) {
             ALOGE("%s: Camera %d: Unable to update callback stream: %s (%d)",
@@ -719,18 +764,6 @@ status_t Camera2Client::startPreviewL(Parameters &params, bool restart) {
         res = mStreamingProcessor->startStream(StreamingProcessor::PREVIEW,
                 outputStreams);
     } else {
-        // With recording hint set, we're going to be operating under the
-        // assumption that the user will record video. To optimize recording
-        // startup time, create the necessary output streams for recording and
-        // video snapshot now if they don't already exist.
-        res = updateProcessorStream(mJpegProcessor, params);
-        if (res != OK) {
-            ALOGE("%s: Camera %d: Can't pre-configure still image "
-                    "stream: %s (%d)",
-                    __FUNCTION__, mCameraId, strerror(-res), res);
-            return res;
-        }
-
         if (!restart) {
             res = mStreamingProcessor->updateRecordingRequest(params);
             if (res != OK) {
@@ -894,6 +927,29 @@ status_t Camera2Client::startRecordingL(Parameters &params, bool restart) {
         }
     }
 
+    // Not all devices can support a preview callback stream and a recording
+    // stream at the same time, so assume none of them can.
+    if (mCallbackProcessor->getStreamId() != NO_STREAM) {
+        ALOGV("%s: Camera %d: Clearing out callback stream before "
+                "creating recording stream", __FUNCTION__, mCameraId);
+        res = mStreamingProcessor->stopStream();
+        if (res != OK) {
+            ALOGE("%s: Camera %d: Can't stop streaming to delete callback stream",
+                    __FUNCTION__, mCameraId);
+            return res;
+        }
+        res = mCallbackProcessor->deleteStream();
+        if (res != OK) {
+            ALOGE("%s: Camera %d: Unable to delete callback stream before "
+                    "record: %s (%d)", __FUNCTION__, mCameraId,
+                    strerror(-res), res);
+            return res;
+        }
+    }
+    // Disable callbacks if they're enabled; can't record and use callbacks,
+    // and we can't fail record start without stagefright asserting.
+    params.previewCallbackFlags = 0;
+
     res = updateProcessorStream<
             StreamingProcessor,
             &StreamingProcessor::updateRecordingStream>(mStreamingProcessor,
@@ -905,17 +961,6 @@ status_t Camera2Client::startRecordingL(Parameters &params, bool restart) {
     }
 
     Vector<uint8_t> outputStreams;
-    bool callbacksEnabled = params.previewCallbackFlags &
-        CAMERA_FRAME_CALLBACK_FLAG_ENABLE_MASK;
-    if (callbacksEnabled) {
-        res = mCallbackProcessor->updateStream(params);
-        if (res != OK) {
-            ALOGE("%s: Camera %d: Unable to update callback stream: %s (%d)",
-                    __FUNCTION__, mCameraId, strerror(-res), res);
-            return res;
-        }
-        outputStreams.push(getCallbackStreamId());
-    }
     outputStreams.push(getPreviewStreamId());
     outputStreams.push(getRecordingStreamId());
 
@@ -1647,6 +1692,8 @@ status_t Camera2Client::updateProcessorStream(sp<ProcessorT> processor,
      * queue) and then try again. Resume streaming once we're done.
      */
     if (res == -EBUSY) {
+        ALOGV("%s: Camera %d: Pausing to update stream", __FUNCTION__,
+                mCameraId);
         res = mStreamingProcessor->togglePauseStream(/*pause*/true);
         if (res != OK) {
             ALOGE("%s: Camera %d: Can't pause streaming: %s (%d)",
