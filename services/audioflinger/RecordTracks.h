@@ -28,6 +28,7 @@ public:
                                 audio_format_t format,
                                 audio_channel_mask_t channelMask,
                                 size_t frameCount,
+                                uint32_t flags,
                                 int sessionId);
     virtual             ~RecordTrack();
 
