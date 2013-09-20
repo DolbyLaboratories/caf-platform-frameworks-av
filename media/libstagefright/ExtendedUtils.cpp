@@ -94,7 +94,7 @@ status_t ExtendedUtils::HFR::reCalculateFileDuration(
     CHECK(meta->findInt32(kKeyWidth, &width));
     CHECK(meta->findInt32(kKeyHeight, &height));
 
-    char mDeviceName[100];
+    char mDeviceName[PROPERTY_VALUE_MAX];
     property_get("ro.board.platform",mDeviceName,"0");
     if (!strncmp(mDeviceName, "msm7627a", 8)) {
         if (hfr && (width * height > 432*240)) {
@@ -536,6 +536,18 @@ void ExtendedUtils::helper_Mpeg4ExtractorCheckAC3EAC3(MediaBuffer *buffer,
     }
 }
 
+int32_t ExtendedUtils::getEncoderTypeFlags() {
+    int32_t flags = 0;
+
+    char mDeviceName[PROPERTY_VALUE_MAX];
+    property_get("ro.board.platform",mDeviceName,"0");
+    if (!strncmp(mDeviceName, "msm8610", 7)) {
+        flags |= OMXCodec::kHardwareCodecsOnly;
+    }
+    return flags;
+
+}
+
 }
 #else //ENABLE_AV_ENHANCEMENTS
 
@@ -632,6 +644,9 @@ void ExtendedUtils::helper_Mpeg4ExtractorCheckAC3EAC3(MediaBuffer *buffer,
                                                         size_t size) {
 }
 
+int32_t ExtendedUtils::getEncoderTypeFlags() {
+    return 0;
+}
 
 }
 #endif //ENABLE_AV_ENHANCEMENTS
