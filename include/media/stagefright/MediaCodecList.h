@@ -1,5 +1,7 @@
 /*
  * Copyright 2012, The Android Open Source Project
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,6 +101,8 @@ private:
     status_t addQuirk(const char **attrs);
     status_t addTypeFromAttributes(const char **attrs);
     void addType(const char *name);
+
+    friend class ExtendedUtils;
 
     DISALLOW_EVIL_CONSTRUCTORS(MediaCodecList);
 };
