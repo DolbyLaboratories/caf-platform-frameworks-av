@@ -34,6 +34,7 @@
 #include <media/stagefright/AACWriter.h>
 #include <media/stagefright/ExtendedWriter.h>
 #include <media/stagefright/WAVEWriter.h>
+#include <media/stagefright/FMA2DPWriter.h>
 #include <media/stagefright/CameraSource.h>
 #include <media/stagefright/CameraSourceTimeLapse.h>
 #include <media/stagefright/MPEG2TSWriter.h>
@@ -61,6 +62,7 @@
 #include "ARTPWriter.h"
 
 namespace android {
+
 
 // To collect the encoder usage for the battery app
 static void addBatteryData(uint32_t params) {
@@ -778,7 +780,8 @@ status_t StagefrightRecorder::start() {
     }
 
     status_t status = OK;
-
+    if(AUDIO_SOURCE_FM_RX_A2DP == mAudioSource)
+        return startFMA2DPWriter();
     switch (mOutputFormat) {
         case OUTPUT_FORMAT_DEFAULT:
         case OUTPUT_FORMAT_THREE_GPP:
@@ -1032,6 +1035,21 @@ status_t StagefrightRecorder::startRawAudioRecording() {
 
     return OK;
 }
+
+
+status_t StagefrightRecorder::startFMA2DPWriter() {
+
+    sp<MetaData> meta = new MetaData;
+
+    meta->setInt32(kKeyChannelCount, AUDIO_CHANNELS);
+    meta->setInt32(kKeySampleRate, SAMPLING_RATE);
+
+    mWriter = new FMA2DPWriter();
+    mWriter->setListener(mListener);
+    mWriter->start(meta.get());
+    return OK;
+}
+
 
 status_t StagefrightRecorder::startRTPRecording() {
     CHECK_EQ(mOutputFormat, OUTPUT_FORMAT_RTP_AVP);
