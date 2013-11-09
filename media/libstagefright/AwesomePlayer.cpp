@@ -240,6 +240,46 @@ AwesomePlayer::~AwesomePlayer() {
     mClient.disconnect();
 }
 
+void AwesomePlayer::printStats() {
+    char value[PROPERTY_VALUE_MAX];
+    property_get("persist.debug.sf.statistics", value, "0");
+    if (atoi(value) && mVideoSource != NULL) {
+        ALOGI("===========================\n"
+            "   videoDimensions(%d x %d)\n"
+            "   Total Video Frames Decoded(%lld)\n"
+            "   Total Video Frames Rendered(%lld)\n"
+            "   Total Playback Duration(%lld ms)\n"
+            "   numVideoFramesDropped(%lld)\n"
+            "   Average Frames Per Second(%.4f)\n"
+            "   Last Seek To Time(%lld ms)\n"
+            "   Last Paused Time(%lld ms)\n"
+            "   First Frame Latency (%lld ms)\n"
+            "   Number of times AV Sync Lost(%u)\n"
+            "   Max Video Ahead Time Delta(%u)\n"
+            "   Max Video Behind Time Delta(%u)\n"
+            "   Max Time Sync Loss(%u)\n"
+            "   EOS(%d)\n"
+            "   PLAYING(%d)\n"
+            "===========================\n\n",
+            mStats.mVideoWidth,
+            mStats.mVideoHeight,
+            mStats.mNumVideoFramesDecoded,
+            mStats.mTotalFrames,
+            mStats.mTotalTimeUs/1000,
+            mStats.mNumVideoFramesDropped,
+            mStats.mTotalTimeUs > 0 ? ((double)(mStats.mTotalFrames)*1E6)/((double)mStats.mTotalTimeUs) : 0,
+            mStats.mLastSeekToTimeMs,
+            mStats.mLastPausedTimeMs,
+            mStats.mFirstFrameLatencyUs/1000,
+            mStats.mNumTimesSyncLoss,
+            -mStats.mMaxEarlyDelta/1000,
+            mStats.mMaxLateDelta/1000,
+            mStats.mMaxTimeSyncLoss/1000,
+            (mFlags & VIDEO_AT_EOS) > 0,
+            (mFlags & PLAYING) > 0);
+    }
+}
+
 void AwesomePlayer::cancelPlayerEvents(bool keepNotifications) {
     mQueue.cancelEvent(mVideoEvent->eventID());
     mVideoEventPending = false;
@@ -567,6 +607,8 @@ void AwesomePlayer::reset_l() {
 
     mVideoRenderer.clear();
 
+    modifyFlags(PLAYING, CLEAR);
+    printStats();
     if (mVideoSource != NULL) {
         shutdownVideoDecoder_l();
     }
@@ -602,6 +644,21 @@ void AwesomePlayer::reset_l() {
         mStats.mVideoHeight = -1;
         mStats.mFlags = 0;
         mStats.mTracks.clear();
+        mStats.mConsecutiveFramesDropped = 0;
+        mStats.mCatchupTimeStart = 0;
+        mStats.mNumTimesSyncLoss = 0;
+        mStats.mMaxEarlyDelta = 0;
+        mStats.mMaxLateDelta = 0;
+        mStats.mMaxTimeSyncLoss = 0;
+        mStats.mTotalFrames = 0;
+        mStats.mLastFrameUs = 0;
+        mStats.mTotalTimeUs = 0;
+        mStats.mVeryFirstFrame = true;
+        mStats.mFirstFrameLatencyUs = 0;
+        mStats.mLastPausedTimeMs = 0;
+        mStats.mLastSeekToTimeMs = 0;
+        mStats.mResumeDelayStartUs = -1;
+        mStats.mSeekDelayStartUs = -1;
     }
 
     mWatchForAudioSeekComplete = false;
@@ -978,6 +1035,15 @@ status_t AwesomePlayer::play_l() {
         mTimeSource = &mSystemTimeSource;
     }
 
+    {
+        Mutex::Autolock autoLock(mStatsLock);
+        if (mStats.mVeryFirstFrame) {
+            mStats.mFirstFrameLatencyStartUs = getTimeOfDayUs();
+        } else {
+            mStats.mResumeDelayStartUs = getTimeOfDayUs();
+        }
+    }
+
     if (mVideoSource != NULL) {
         // Kick off video playback
         postVideoEvent_l();
@@ -1263,6 +1329,12 @@ status_t AwesomePlayer::pause_l(bool at_eos) {
                 Playback::PAUSE, 0);
     }
 
+    if(!(mFlags & VIDEO_AT_EOS)){
+        Mutex::Autolock autoLock(mStatsLock);
+        mStats.mLastPausedTimeMs = mVideoTimeUs/1000;
+        printStats();
+    }
+
     uint32_t params = IMediaPlayerService::kBatteryDataTrackDecoder;
     if ((mAudioSource != NULL) && (mAudioSource != mAudioTrack)) {
         params |= IMediaPlayerService::kBatteryDataTrackAudio;
@@ -1421,6 +1493,11 @@ status_t AwesomePlayer::seekTo_l(int64_t timeUs) {
     }
 
     mSeeking = SEEK;
+
+    {
+        Mutex::Autolock autoLock(mStatsLock);
+        mStats.mSeekDelayStartUs = getTimeOfDayUs();
+    }
     mSeekNotificationSent = false;
     mSeekTimeUs = timeUs;
     modifyFlags((AT_EOS | AUDIO_AT_EOS | VIDEO_AT_EOS), CLEAR);
@@ -1708,6 +1785,12 @@ void AwesomePlayer::finishSeekIfNecessary(int64_t videoTimeUs) {
         mDrmManagerClient->setPlaybackStatus(mDecryptHandle,
                 Playback::START, videoTimeUs / 1000);
     }
+
+    {
+        Mutex::Autolock autoLock(mStatsLock);
+        mStats.mLastSeekToTimeMs = mSeekTimeUs/1000;
+        printStats();
+    }
 }
 
 void AwesomePlayer::onVideoEvent() {
@@ -1719,6 +1802,14 @@ void AwesomePlayer::onVideoEvent() {
         return;
     }
     mVideoEventPending = false;
+
+    {
+        Mutex::Autolock autoLock(mStatsLock);
+        if(!mStats.mVeryFirstFrame && mSeeking == NO_SEEK){
+            mStats.mTotalTimeUs += getTimeOfDayUs() - mStats.mLastFrameUs;
+        }
+        mStats.mLastFrameUs = getTimeOfDayUs();
+    }
 
     if (mSeeking != NO_SEEK) {
         if (mVideoBuffer) {
@@ -1853,18 +1944,27 @@ void AwesomePlayer::onVideoEvent() {
         modifyFlags(FIRST_FRAME, CLEAR);
         mSinceLastDropped = 0;
         mTimeSourceDeltaUs = ts->getRealTimeUs() - timeUs;
+
+        {
+            Mutex::Autolock autoLock(mStatsLock);
+            if(mStats.mVeryFirstFrame){
+                logFirstFrame();
+                printStats();
+                mStats.mLastFrameUs = getTimeOfDayUs();
+            }
+        }
     }
 
-    int64_t realTimeUs, mediaTimeUs;
+    int64_t realTimeUs, mediaTimeUs, nowUs = 0, latenessUs = 0;
     if (!(mFlags & AUDIO_AT_EOS) && mAudioPlayer != NULL
         && mAudioPlayer->getMediaTimeMapping(&realTimeUs, &mediaTimeUs)) {
         mTimeSourceDeltaUs = realTimeUs - mediaTimeUs;
     }
 
     if (wasSeeking == SEEK_VIDEO_ONLY) {
-        int64_t nowUs = ts->getRealTimeUs() - mTimeSourceDeltaUs;
+        nowUs = ts->getRealTimeUs() - mTimeSourceDeltaUs;
 
-        int64_t latenessUs = nowUs - timeUs;
+        latenessUs = nowUs - timeUs;
 
         ATRACE_INT("Video Lateness (ms)", latenessUs / 1E3);
 
@@ -1876,9 +1976,9 @@ void AwesomePlayer::onVideoEvent() {
     if (wasSeeking == NO_SEEK) {
         // Let's display the first frame after seeking right away.
 
-        int64_t nowUs = ts->getRealTimeUs() - mTimeSourceDeltaUs;
+        nowUs = ts->getRealTimeUs() - mTimeSourceDeltaUs;
 
-        int64_t latenessUs = nowUs - timeUs;
+        latenessUs = nowUs - timeUs;
 
         ATRACE_INT("Video Lateness (ms)", latenessUs / 1E3);
 
@@ -1925,6 +2025,11 @@ void AwesomePlayer::onVideoEvent() {
                 {
                     Mutex::Autolock autoLock(mStatsLock);
                     ++mStats.mNumVideoFramesDropped;
+                    mStats.mConsecutiveFramesDropped++;
+                    if (mStats.mConsecutiveFramesDropped == 1){
+                        mStats.mCatchupTimeStart = mTimeSource->getRealTimeUs();
+                    }
+                    if(!(mFlags & AT_EOS)) logLate(timeUs,nowUs,latenessUs);
                 }
 
                 postVideoEvent_l();
@@ -1934,6 +2039,11 @@ void AwesomePlayer::onVideoEvent() {
 
         if (latenessUs < -10000) {
             // We're more than 10ms early.
+            logOnTime(timeUs,nowUs,latenessUs);
+            {
+                Mutex::Autolock autoLock(mStatsLock);
+                mStats.mConsecutiveFramesDropped = 0;
+            }
             postVideoEvent_l(10000);
             return;
         }
@@ -1956,6 +2066,27 @@ void AwesomePlayer::onVideoEvent() {
 
         if (mFlags & PLAYING) {
             notifyIfMediaStarted_l();
+        }
+
+        {
+            Mutex::Autolock autoLock(mStatsLock);
+            logOnTime(timeUs,nowUs,latenessUs);
+            mStats.mTotalFrames++;
+            mStats.mConsecutiveFramesDropped = 0;
+            char value[PROPERTY_VALUE_MAX];
+            property_get("persist.debug.sf.statistics", value, "0");
+            if (atoi(value) && mVideoSource != NULL) {
+                if (mStats.mResumeDelayStartUs > 0) {
+                    printStats();
+                    ALOGI("Resume Latency = %lld us", getTimeOfDayUs() - mStats.mResumeDelayStartUs);
+                    mStats.mResumeDelayStartUs = -1;
+                }
+                if (mStats.mSeekDelayStartUs > 0) {
+                    printStats();
+                    ALOGI("Seek Latency = %lld us", getTimeOfDayUs() - mStats.mSeekDelayStartUs);
+                    mStats.mSeekDelayStartUs = -1;
+                }
+            }
         }
     }
 
@@ -2789,13 +2920,33 @@ status_t AwesomePlayer::dump(int fd, const Vector<String16> &args) const {
 
         if ((ssize_t)i == mStats.mVideoTrackIndex) {
             fprintf(out,
-                    "   videoDimensions(%d x %d), "
-                    "numVideoFramesDecoded(%lld), "
-                    "numVideoFramesDropped(%lld)\n",
+                    "   videoDimensions(%d x %d)\n"
+                    "   Total Video Frames Decoded(%lld)\n"
+                    "   Total Video Frames Rendered(%lld)\n"
+                    "   Total Playback Duration(%lld ms)\n"
+                    "   numVideoFramesDropped(%lld)\n"
+                    "   Average Frames Per Second(%.4f)\n"
+                    "   First Frame Latency (%lld ms)\n"
+                    "   Number of times AV Sync Lost(%u)\n"
+                    "   Max Video Ahead Time Delta(%u)\n"
+                    "   Max Video Behind Time Delta(%u)\n"
+                    "   Max Time Sync Loss(%u)\n"
+                    "   EOS(%d)\n"
+                    "   PLAYING(%d)\n",
                     mStats.mVideoWidth,
                     mStats.mVideoHeight,
                     mStats.mNumVideoFramesDecoded,
-                    mStats.mNumVideoFramesDropped);
+                    mStats.mTotalFrames,
+                    mStats.mTotalTimeUs/1000,
+                    mStats.mNumVideoFramesDropped,
+                    ((double)(mStats.mTotalFrames)*1E6)/((double)mStats.mTotalTimeUs),
+                    mStats.mFirstFrameLatencyUs/1000,
+                    mStats.mNumTimesSyncLoss,
+                    -mStats.mMaxEarlyDelta/1000,
+                    mStats.mMaxLateDelta/1000,
+                    mStats.mMaxTimeSyncLoss/1000,
+                    (mFlags & AT_EOS) > 0,
+                    (mFlags & PLAYING) > 0);
         }
     }
 
@@ -2877,4 +3028,48 @@ void AwesomePlayer::onAudioTearDownEvent() {
     beginPrepareAsync_l();
 }
 
+inline void AwesomePlayer::logFirstFrame() {
+    mStats.mFirstFrameLatencyUs = getTimeOfDayUs()-mStats.mFirstFrameLatencyStartUs;
+    mStats.mVeryFirstFrame = false;
+}
+
+inline void AwesomePlayer::logCatchUp(int64_t ts, int64_t clock, int64_t delta)
+{
+    if (mStats.mConsecutiveFramesDropped > 0) {
+        mStats.mNumTimesSyncLoss++;
+        if (mStats.mMaxTimeSyncLoss < (clock - mStats.mCatchupTimeStart) && clock > 0 && ts > 0) {
+            mStats.mMaxTimeSyncLoss = clock - mStats.mCatchupTimeStart;
+        }
+    }
+}
+
+inline void AwesomePlayer::logLate(int64_t ts, int64_t clock, int64_t delta)
+{
+    if (mStats.mMaxLateDelta < delta && clock > 0 && ts > 0) {
+        mStats.mMaxLateDelta = delta;
+    }
+}
+
+inline void AwesomePlayer::logOnTime(int64_t ts, int64_t clock, int64_t delta)
+{
+    bool needLogLate = false;
+    logCatchUp(ts, clock, delta);
+    if (delta <= 0) {
+        if ((-delta) > (-mStats.mMaxEarlyDelta) && clock > 0 && ts > 0) {
+            mStats.mMaxEarlyDelta = delta;
+        }
+    }
+    else {
+        needLogLate = true;
+    }
+
+    if(needLogLate) logLate(ts, clock, delta);
+}
+
+inline int64_t AwesomePlayer::getTimeOfDayUs() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    return (int64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+}
 }  // namespace android
