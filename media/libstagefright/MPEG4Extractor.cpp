@@ -42,6 +42,7 @@
 #include <utils/String8.h>
 #ifdef ENABLE_AV_ENHANCEMENTS
 #include <QCMediaDefs.h>
+#include "include/ExtendedUtils.h"
 #endif
 
 namespace android {
@@ -3214,7 +3215,10 @@ status_t MPEG4Source::read(
 
                 return ERROR_IO;
             }
-
+#ifdef ENABLE_AV_ENHANCEMENTS
+            //for AC3/EAC3 detection
+            ExtendedUtils::helper_Mpeg4ExtractorCheckAC3EAC3(mBuffer, mFormat, size);
+#endif
             CHECK(mBuffer != NULL);
             mBuffer->set_range(0, size);
             mBuffer->meta_data()->clear();
