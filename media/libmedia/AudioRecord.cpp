@@ -1,6 +1,8 @@
 /*
 **
 ** Copyright 2008, The Android Open Source Project
+** Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+** Not a Contribution.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -62,7 +64,10 @@ status_t AudioRecord::getMinFrameCount(
 
     // Assumes audio_is_linear_pcm(format)
     uint32_t channelCount = popcount(channelMask);
-    size /= channelCount * audio_bytes_per_sample(format);
+    if(audio_is_linear_pcm(format))
+        size /= channelCount * audio_bytes_per_sample(format);
+    else
+        size /= sizeof(uint8_t);
 
     *frameCount = size;
     return NO_ERROR;
@@ -194,11 +199,14 @@ status_t AudioRecord::set(
         ALOGE("Invalid format %d", format);
         return BAD_VALUE;
     }
-    // Temporary restriction: AudioFlinger currently supports 16-bit PCM only
-    if (format != AUDIO_FORMAT_PCM_16_BIT) {
+
+    if (format != AUDIO_FORMAT_PCM_16_BIT &&
+           !audio_is_compress_voip_format(format) &&
+           !audio_is_compress_capture_format(format)) {
         ALOGE("Format %d is not supported", format);
         return BAD_VALUE;
     }
+
     mFormat = format;
 
     if (!audio_is_input_channel(channelMask)) {
@@ -210,7 +218,11 @@ status_t AudioRecord::set(
     mChannelCount = channelCount;
 
     // Assumes audio_is_linear_pcm(format), else sizeof(uint8_t)
-    mFrameSize = channelCount * audio_bytes_per_sample(format);
+    if (audio_is_linear_pcm(format))
+        mFrameSize = channelCount * audio_bytes_per_sample(format);
+    else
+        mFrameSize = sizeof(uint8_t);
+
 
     // validate framecount
     size_t minFrameCount = 0;
@@ -220,6 +232,7 @@ status_t AudioRecord::set(
         ALOGE("getMinFrameCount() failed; status %d", status);
         return status;
     }
+
     ALOGV("AudioRecord::set() minFrameCount = %d", minFrameCount);
 
     if (frameCount == 0) {
