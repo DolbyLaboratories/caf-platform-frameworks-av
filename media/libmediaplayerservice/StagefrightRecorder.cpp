@@ -22,6 +22,7 @@
 
 #include "StagefrightRecorder.h"
 
+#include <binder/AppOpsManager.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
 
@@ -780,6 +781,13 @@ status_t StagefrightRecorder::start() {
     }
 
     status_t status = OK;
+
+    //check permissions
+    if (mAppOpsManager.noteOp(AppOpsManager::OP_RECORD_AUDIO, mClientUid, mClientName)
+        != AppOpsManager::MODE_ALLOWED) {
+        return status;
+    }
+
     if(AUDIO_SOURCE_FM_RX_A2DP == mAudioSource)
         return startFMA2DPWriter();
     switch (mOutputFormat) {
