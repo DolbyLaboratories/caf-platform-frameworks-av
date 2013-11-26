@@ -71,7 +71,8 @@ enum output_format {
     OUTPUT_FORMAT_MPEG2TS = 8,
 
     OUTPUT_FORMAT_QCP = 9, // QCP file format
-    OUTPUT_FORMAT_WAVE = 10, /*WAVE*/
+    OUTPUT_FORMAT_THREE_GPP2 = 10, /*3GPP2*/
+    OUTPUT_FORMAT_WAVE = 11, /*WAVE*/
 
     OUTPUT_FORMAT_LIST_END // must be last - used to validate format type
 };
