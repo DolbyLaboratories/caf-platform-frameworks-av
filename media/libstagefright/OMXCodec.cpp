@@ -51,6 +51,7 @@
 #include <QOMX_AudioExtensions.h>
 #endif
 #include "include/avc_utils.h"
+#include "include/ExtendedUtils.h"
 
 namespace android {
 
@@ -4705,6 +4706,8 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                 if (mNativeWindow != NULL) {
                      initNativeWindowCrop();
                 }
+            } else {
+                ExtendedUtils::HFR::copyHFRParams(inputFormat, mOutputFormat);
             }
             break;
         }
