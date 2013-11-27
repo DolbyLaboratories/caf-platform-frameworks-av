@@ -144,6 +144,7 @@ struct ExtendedUtils {
     //helper function for MPEG4 Extractor to check for AC3/EAC3 contents
     static void helper_Mpeg4ExtractorCheckAC3EAC3(MediaBuffer *buffer, sp<MetaData> &format,
                                                    size_t size);
+    static int32_t getEncoderTypeFlags();
 };
 
 }
