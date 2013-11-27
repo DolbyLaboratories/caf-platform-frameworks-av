@@ -526,6 +526,8 @@ void ExtendedCodec::configureVideoDecoder(
 
     // Enable timestamp reordering only for AVI/mpeg4 and vc1 clips
     if (!strcmp(componentName, "OMX.qcom.video.decoder.vc1") ||
+        !strcmp(componentName, "OMX.qcom.video.decoder.mpeg4") ||
+        !strcmp(componentName, "OMX.qcom.video.decoder.avc") ||
         (fileFormatCStr!= NULL && !strncmp(fileFormatCStr, "video/avi", 9))) {
         ALOGI("Enabling timestamp reordering");
         QOMX_INDEXTIMESTAMPREORDER reorder;
