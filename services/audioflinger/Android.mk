@@ -85,12 +85,11 @@ else
 endif
 
 LOCAL_CFLAGS += -fvisibility=hidden
-ifeq (,$(POSTPRO_PATH))
-POSTPRO_PATH := ../srs_processing
+ifeq ($(strip $(BOARD_USES_SRS_TRUEMEDIA)),true)
+LOCAL_SHARED_LIBRARIES += libsrsprocessing
+LOCAL_CFLAGS += -DSRS_PROCESSING
+LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/audio-effects
 endif
-$(warning before *******)
-include $(LOCAL_PATH)/$(POSTPRO_PATH)/AF_PATCH.mk
-$(Warning after ********)
 include $(BUILD_SHARED_LIBRARY)
 
 #
@@ -99,9 +98,9 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=               \
-	test-resample.cpp 			\
+    test-resample.cpp 			\
     AudioResampler.cpp.arm      \
-	AudioResamplerCubic.cpp.arm \
+    AudioResamplerCubic.cpp.arm \
     AudioResamplerSinc.cpp.arm
 
 LOCAL_SHARED_LIBRARIES := \
