@@ -107,7 +107,8 @@ AudioTrack::AudioTrack(
         int notificationFrames,
         int sessionId,
         transfer_type transferType,
-        const audio_offload_info_t *offloadInfo)
+        const audio_offload_info_t *offloadInfo,
+        int uid)
     : mStatus(NO_INIT),
       mIsTimed(false),
       mPreviousPriority(ANDROID_PRIORITY_NORMAL),
@@ -115,7 +116,8 @@ AudioTrack::AudioTrack(
 {
     mStatus = set(streamType, sampleRate, format, channelMask,
             frameCount, flags, cbf, user, notificationFrames,
-            0 /*sharedBuffer*/, false /*threadCanCallJava*/, sessionId, transferType, offloadInfo);
+            0 /*sharedBuffer*/, false /*threadCanCallJava*/, sessionId, transferType,
+            offloadInfo, uid);
 }
 
 AudioTrack::AudioTrack(
@@ -130,7 +132,8 @@ AudioTrack::AudioTrack(
         int notificationFrames,
         int sessionId,
         transfer_type transferType,
-        const audio_offload_info_t *offloadInfo)
+        const audio_offload_info_t *offloadInfo,
+        int uid)
     : mStatus(NO_INIT),
       mIsTimed(false),
       mPreviousPriority(ANDROID_PRIORITY_NORMAL),
@@ -138,7 +141,7 @@ AudioTrack::AudioTrack(
 {
     mStatus = set(streamType, sampleRate, format, channelMask,
             0 /*frameCount*/, flags, cbf, user, notificationFrames,
-            sharedBuffer, false /*threadCanCallJava*/, sessionId, transferType, offloadInfo);
+            sharedBuffer, false /*threadCanCallJava*/, sessionId, transferType, offloadInfo, uid);
 }
 
 AudioTrack::~AudioTrack()
@@ -175,7 +178,8 @@ status_t AudioTrack::set(
         bool threadCanCallJava,
         int sessionId,
         transfer_type transferType,
-        const audio_offload_info_t *offloadInfo)
+        const audio_offload_info_t *offloadInfo,
+        int uid)
 {
     ALOGV("sampleRate %u, channelMask %#x, format %d", sampleRate, channelMask, format);
     ALOGV("streamType %d", streamType);
@@ -352,6 +356,11 @@ status_t AudioTrack::set(
     mNotificationFramesReq = notificationFrames;
     mNotificationFramesAct = 0;
     mSessionId = sessionId;
+    if (uid == -1 || (IPCThreadState::self()->getCallingPid() != getpid())) {
+        mClientUid = IPCThreadState::self()->getCallingUid();
+    } else {
+        mClientUid = uid;
+    }
     mAuxEffectId = 0;
     mFlags = flags;
     mCbf = cbf;
@@ -1001,6 +1010,7 @@ status_t AudioTrack::createTrack_l(
                                                       tid,
                                                       &mSessionId,
                                                       mName,
+                                                      mClientUid,
                                                       &status);
 
     if (track == 0) {
