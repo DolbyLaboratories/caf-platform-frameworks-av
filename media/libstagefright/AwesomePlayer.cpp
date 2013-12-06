@@ -66,7 +66,6 @@ static int64_t kLowWaterMarkUs = 2000000ll;  // 2secs
 static int64_t kHighWaterMarkUs = 5000000ll;  // 5secs
 static const size_t kLowWaterMarkBytes = 40000;
 static const size_t kHighWaterMarkBytes = 200000;
-static const size_t kDefaultFrameDurationUs = 33000;
 
 // maximum time in paused state when offloading audio decompression. When elapsed, the AudioPlayer
 // is destroyed to allow the audio DSP to power down.
@@ -204,7 +203,6 @@ AwesomePlayer::AwesomePlayer()
       mVideoBuffer(NULL),
       mDecryptHandle(NULL),
       mLastVideoTimeUs(-1),
-      mFrameDurationUs(kDefaultFrameDurationUs),
       mTextDriver(NULL),
       mOffloadAudio(false),
       mAudioTearDown(false) {
@@ -1910,10 +1908,6 @@ void AwesomePlayer::onVideoEvent() {
 
     int64_t timeUs;
     CHECK(mVideoBuffer->meta_data()->findInt64(kKeyTime, &timeUs));
-    if ((mLastVideoTimeUs != timeUs) && (mLastVideoTimeUs > 0)
-            && (mSeeking == NO_SEEK)) {
-        mFrameDurationUs = timeUs - mLastVideoTimeUs;
-    }
 
     mLastVideoTimeUs = timeUs;
 
@@ -2042,8 +2036,7 @@ void AwesomePlayer::onVideoEvent() {
                     if(!(mFlags & AT_EOS)) logLate(timeUs,nowUs,latenessUs);
                 }
 
-                //Wake up asap for next, as we just dropped a frame
-                postVideoEvent_l(0);
+                postVideoEvent_l();
                 return;
             }
         }
@@ -2067,7 +2060,6 @@ void AwesomePlayer::onVideoEvent() {
         initRenderer_l();
     }
 
-    int64_t renderStartTimeUs = mSystemTimeSource.getRealTimeUs();
     if (mVideoRenderer != NULL) {
         mSinceLastDropped++;
         mVideoRenderer->render(mVideoBuffer);
@@ -2110,10 +2102,7 @@ void AwesomePlayer::onVideoEvent() {
         return;
     }
 
-    int64_t renderDeltaUs = mSystemTimeSource.getRealTimeUs() - renderStartTimeUs;
-    int64_t delayUs = mFrameDurationUs - (latenessUs + renderDeltaUs);
-    delayUs = delayUs > 10000 ? 10000 : delayUs;
-    postVideoEvent_l(delayUs > 0 ? delayUs : 0);
+    postVideoEvent_l();
 }
 
 void AwesomePlayer::postVideoEvent_l(int64_t delayUs) {
