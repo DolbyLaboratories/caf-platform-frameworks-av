@@ -31,6 +31,8 @@
 #include <utils/String8.h>
 #include <cutils/properties.h>
 
+#include "include/ExtendedUtils.h"
+
 namespace android {
 
 static const int64_t CAMERA_SOURCE_TIMEOUT_NS = 3000000000LL;
@@ -563,6 +565,9 @@ status_t CameraSource::initWithCameraAccess(
     mMeta->setInt32(kKeyStride,      mVideoSize.width);
     mMeta->setInt32(kKeySliceHeight, mVideoSize.height);
     mMeta->setInt32(kKeyFrameRate,   mVideoFrameRate);
+
+    ExtendedUtils::HFR::setHFRIfEnabled(params, mMeta);
+
     return OK;
 }
 
