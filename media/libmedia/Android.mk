@@ -73,6 +73,14 @@ LOCAL_SRC_FILES += SingleStateQueue.cpp
 LOCAL_CFLAGS += -DSINGLE_STATE_QUEUE_INSTANTIATIONS='"SingleStateQueueInstantiations.cpp"'
 # Consider a separate a library for SingleStateQueueInstantiations.
 
+#QTI Resampler
+ifeq ($(call is-vendor-board-platform,QCOM),true)
+ifeq ($(strip $(BOARD_USES_QCOM_RESAMPLER)),true)
+LOCAL_CFLAGS += -DQTI_RESAMPLER
+endif
+endif
+#QTI Resampler
+
 LOCAL_SHARED_LIBRARIES := \
 	libui liblog libcutils libutils libbinder libsonivox libicuuc libexpat \
         libcamera_client libstagefright_foundation \

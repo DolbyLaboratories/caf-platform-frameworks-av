@@ -26,6 +26,10 @@
 #include "AudioResamplerSinc.h"
 #include "AudioResamplerCubic.h"
 
+#ifdef QTI_RESAMPLER
+#include "AudioResamplerQTI.h"
+#endif
+
 #ifdef __arm__
 #include <machine/cpu-features.h>
 #endif
@@ -85,6 +89,9 @@ bool AudioResampler::qualityIsSupported(src_quality quality)
     case MED_QUALITY:
     case HIGH_QUALITY:
     case VERY_HIGH_QUALITY:
+#ifdef QTI_RESAMPLER
+    case QTI_QUALITY:
+#endif
         return true;
     default:
         return false;
@@ -105,7 +112,11 @@ void AudioResampler::init_routine()
         if (*endptr == '\0') {
             defaultQuality = (src_quality) l;
             ALOGD("forcing AudioResampler quality to %d", defaultQuality);
+#ifdef QTI_RESAMPLER
+            if (defaultQuality < DEFAULT_QUALITY || defaultQuality > QTI_QUALITY) {
+#else
             if (defaultQuality < DEFAULT_QUALITY || defaultQuality > VERY_HIGH_QUALITY) {
+#endif
                 defaultQuality = DEFAULT_QUALITY;
             }
         }
@@ -124,6 +135,9 @@ uint32_t AudioResampler::qualityMHz(src_quality quality)
     case HIGH_QUALITY:
         return 20;
     case VERY_HIGH_QUALITY:
+#ifdef QTI_RESAMPLER
+    case QTI_QUALITY: //for QTI_QUALITY, currently assuming same as VHQ
+#endif
         return 34;
     }
 }
@@ -175,6 +189,11 @@ AudioResampler* AudioResampler::create(int bitDepth, int inChannelCount,
         case VERY_HIGH_QUALITY:
             quality = HIGH_QUALITY;
             break;
+#ifdef QTI_RESAMPLER
+        case QTI_QUALITY:
+            quality = VERY_HIGH_QUALITY;
+            break;
+#endif
         }
     }
     pthread_mutex_unlock(&mutex);
@@ -200,6 +219,12 @@ AudioResampler* AudioResampler::create(int bitDepth, int inChannelCount,
         ALOGV("Create VERY_HIGH_QUALITY sinc Resampler = %d", quality);
         resampler = new AudioResamplerSinc(bitDepth, inChannelCount, sampleRate, quality);
         break;
+#ifdef QTI_RESAMPLER
+    case QTI_QUALITY:
+        ALOGV("Create QTI_QUALITY Resampler = %d",quality);
+        resampler = new AudioResamplerQTI(bitDepth, inChannelCount, sampleRate);
+        break;
+#endif
     }
 
     // initialize resampler
