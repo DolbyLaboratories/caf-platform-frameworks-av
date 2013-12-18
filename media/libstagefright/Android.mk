@@ -80,6 +80,7 @@ LOCAL_SRC_FILES:=                         \
         mp4/TrackFragment.cpp             \
         ExtendedExtractor.cpp             \
         ExtendedUtils.cpp                 \
+        ExtendedPrefetchSource.cpp        \
         FMA2DPWriter.cpp                  \
 
 LOCAL_C_INCLUDES:= \
