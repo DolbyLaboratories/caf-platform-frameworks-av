@@ -537,7 +537,7 @@ int32_t ExtendedUtils::getEncoderTypeFlags() {
     char mDeviceName[PROPERTY_VALUE_MAX];
     property_get("ro.board.platform",mDeviceName,"0");
     if (!strncmp(mDeviceName, "msm8610", 7) ||
-        !strncmp(mDeviceName, "msm8626", 7)) {
+        !strncmp(mDeviceName, "msm8226", 7)) {
         flags |= OMXCodec::kHardwareCodecsOnly;
     }
     return flags;
