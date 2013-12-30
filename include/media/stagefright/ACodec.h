@@ -187,6 +187,7 @@ private:
     bool mIsEncoder;
     bool mUseMetadataOnEncoderOutput;
     bool mShutdownInProgress;
+    bool mHaveNativeWindow;
 
     // If "mKeepComponentAllocated" we only transition back to Loaded state
     // and do not release the component instance.
