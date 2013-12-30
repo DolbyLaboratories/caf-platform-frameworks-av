@@ -246,23 +246,23 @@ status_t FMA2DPWriter::writerthread(){
 
     prctl(PR_SET_NAME, (unsigned long)"FMA2DPWriterThread", 0, 0, 0);
 
-    AudioTrack *audioTrack= new AudioTrack(
-                AUDIO_STREAM_MUSIC,
-                mSampleRate,
-                mAudioFormat,
-                outChannel,
-                framecount);
+    sp<AudioTrack> audioTrack;
+    audioTrack = new AudioTrack(AUDIO_STREAM_MUSIC,
+                                mSampleRate,
+                                mAudioFormat,
+                                outChannel,
+                                framecount);
 
-    if(!audioTrack){
+    if(audioTrack.get() == NULL) {
         ALOGE("fatal:Not able to open audiotrack");
         return UNKNOWN_ERROR;
     }
+
     status_t res = audioTrack->initCheck();
     if (res == NO_ERROR) {
         audioTrack->setVolume(1, 1);
         audioTrack->start();
-    }
-    else{
+    } else {
         ALOGE("fatal:audiotrack init check failure");
         return UNKNOWN_ERROR;
     }
