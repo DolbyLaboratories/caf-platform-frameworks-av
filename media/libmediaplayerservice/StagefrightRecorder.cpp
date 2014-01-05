@@ -58,6 +58,7 @@
 
 #include <system/audio.h>
 #ifdef ENABLE_AV_ENHANCEMENTS
+#include <ExtendedUtils.h>
 #include <QCMediaDefs.h>
 #endif
 
@@ -972,9 +973,22 @@ sp<MediaSource> StagefrightRecorder::createAudioSource() {
 
     OMXClient client;
     CHECK_EQ(client.connect(), (status_t)OK);
+#ifdef ENABLE_AV_ENHANCEMENTS
+    sp<MediaSource> audioEncoder;
+    if (ExtendedUtils::UseQCHWAACEncoder(mAudioEncoder,mAudioChannels,mAudioBitRate,mSampleRate)) {
+        //use hw aac encoder
+        ALOGD("use QCOM HW AAC encoder");
+        audioEncoder = OMXCodec::Create(client.interface(), encMeta,
+            true /* createEncoder */, audioSource,"OMX.qcom.audio.encoder.aac",OMXCodec::kHardwareCodecsOnly );
+    } else {
+        audioEncoder = OMXCodec::Create(client.interface(), encMeta,
+            true /* createEncoder */, audioSource);
+    }
+#else
     sp<MediaSource> audioEncoder =
         OMXCodec::Create(client.interface(), encMeta,
                          true /* createEncoder */, audioSource);
+#endif
     // If encoder could not be created (as in LPCM), then
     // use the AudioSource directly as the MediaSource.
     if (audioEncoder == NULL) {
