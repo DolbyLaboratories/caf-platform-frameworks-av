@@ -146,7 +146,7 @@ int32_t ExtendedUtils::HFR::getHFRRatio(
         const sp<MetaData> &meta) {
     int32_t hfr = 0;
     meta->findInt32(kKeyHFR, &hfr);
-    return hfr;
+    return hfr ? hfr : 1;
 }
 
 bool ExtendedUtils::ShellProp::isAudioDisabled(bool isEncoder) {
