@@ -39,6 +39,7 @@
 #include <media/stagefright/NativeWindowWrapper.h>
 
 #include "include/avc_utils.h"
+#include "include/ExtendedUtils.h"
 
 namespace android {
 
@@ -80,6 +81,7 @@ MediaCodec::MediaCodec(const sp<ALooper> &looper)
 
 MediaCodec::~MediaCodec() {
     CHECK_EQ(mState, UNINITIALIZED);
+    ExtendedUtils::drainSecurePool();
 }
 
 // static
@@ -109,6 +111,7 @@ status_t MediaCodec::init(const char *name, bool nameIsType, bool encoder) {
     } else {
         AString tmp = name;
         if (tmp.endsWith(".secure")) {
+            ExtendedUtils::prefetchSecurePool();
             tmp.erase(tmp.size() - 7, 7);
         }
         const MediaCodecList *mcl = MediaCodecList::getInstance();

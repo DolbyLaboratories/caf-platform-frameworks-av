@@ -144,6 +144,8 @@ struct ExtendedUtils {
 
     static void prefetchSecurePool(const char *uri);
 
+    static void prefetchSecurePool();
+
     static void createSecurePool();
 
     static void drainSecurePool();
