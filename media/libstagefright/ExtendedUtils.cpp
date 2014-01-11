@@ -126,7 +126,6 @@ status_t ExtendedUtils::HFR::initializeHFR(
         enc_meta->setInt32(kKeyBitRate, bitRate);
         enc_meta->setInt32(kKeyFrameRate, hfr);
         enc_meta->setInt32(kKeyHFR, hfrRatio);
-        maxFileDurationUs = maxFileDurationUs * hfrRatio;
     }
 
     return retVal;
