@@ -1,7 +1,7 @@
 /*
 **
 ** Copyright 2012, The Android Open Source Project
-** Copyright (c) 2013, The Linux Foundation. All rights reserved.
+** Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
 ** Not a Contribution.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -183,7 +183,7 @@ DsNativeInterface *DsNativeInterface::instance()
 
 DsNativeInterface::DsNativeInterface() :
     mDsVolL(0), mDsVolR(0), mMixerVolL(0), mMixerVolR(0),
-    mDirectVolL(0), mDirectVolR(0), mOffloadVolL(0), mOffloadVolR(0)
+    mDirectVolL(0), mDirectVolR(0), mOffloadVolL(0), mOffloadVolR(0), mDsNativeSetParam(NULL)
 {
     // Open the DS Native library
     void *dsNativeLib = dlopen("libds_native.so", RTLD_NOW | RTLD_GLOBAL);
@@ -2488,7 +2488,7 @@ bool AudioFlinger::PlaybackThread::threadLoop()
 #ifdef DOLBY_DAP_QDSP
             // If there are no active tracks, then clear pregain value for this thread.
             if (mMixerStatus != MIXER_TRACKS_READY) {
-                ALOGD("DsNativeInterface: Clearing pregain for threadType=%d flags=%d", mType, mOutput->flags);
+                ALOGV("DsNativeInterface: Clearing pregain for threadType=%d flags=%d", mType, mOutput->flags);
                 DsNativeInterface::instance()->setMaxThreadVolume(mType, mOutput->flags, 0, 0);
             }
 #endif // DOLBY_END
