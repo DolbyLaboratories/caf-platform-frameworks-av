@@ -38,7 +38,7 @@
 ** code that are surrounded by "DOLBY..." are copyrighted and
 ** licensed separately, as follows:
 **
-**  (C) 2011-2013 Dolby Laboratories, Inc.
+**  (C) 2011-2014 Dolby Laboratories, Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -2488,7 +2488,7 @@ bool AudioFlinger::PlaybackThread::threadLoop()
 #ifdef DOLBY_DAP_QDSP
             // If there are no active tracks, then clear pregain value for this thread.
             if (mMixerStatus != MIXER_TRACKS_READY) {
-                ALOGD("DsNativeInterface: Clearing pregain for threadType=%d flags=%d", mType, mOutput->flags);
+                ALOGV("DsNativeInterface: Clearing pregain for threadType=%d flags=%d", mType, mOutput->flags);
                 DsNativeInterface::instance()->setMaxThreadVolume(mType, mOutput->flags, 0, 0);
             }
 #endif // DOLBY_END

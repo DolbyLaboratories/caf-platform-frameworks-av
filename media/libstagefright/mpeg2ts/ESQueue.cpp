@@ -17,7 +17,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2011-2013 Dolby Laboratories, Inc.
+ *  (C) 2011-2014 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -594,7 +594,6 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitDDP() {
     if(mFormat == NULL)
     {
         sp<MetaData> meta = new MetaData;
-        //TODO: Shoud this be EC3 or AC3 or if statement?
         meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_EAC3);
 
         // Zero values entered to prevent crash
