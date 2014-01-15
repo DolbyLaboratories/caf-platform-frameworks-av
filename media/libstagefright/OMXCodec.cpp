@@ -225,6 +225,21 @@ void OMXCodec::findMatchingCodecs(
     }
 
     size_t index = 0;
+
+#ifdef ENABLE_AV_ENHANCEMENTS
+    //Check if application specially reuqested for  aac hardware encoder
+    //This is not a part of  mediacodec list
+    if (matchComponentName &&
+            !strncmp("OMX.qcom.audio.encoder.aac", matchComponentName, 26)) {
+        matchingCodecs->add();
+
+        CodecNameAndQuirks *entry = &matchingCodecs->editItemAt(index);
+        entry->mName = String8("OMX.qcom.audio.encoder.aac");
+        entry->mQuirks = 0;
+        return;
+    }
+#endif
+
     for (;;) {
         ssize_t matchIndex =
             list->findCodecByType(mime, createEncoder, index);
@@ -316,6 +331,15 @@ bool OMXCodec::findCodecQuirks(const char *componentName, uint32_t *quirks) {
     if (list == NULL) {
         return false;
     }
+#ifdef ENABLE_AV_ENHANCEMENTS
+    //Check for aac hardware encoder
+    //This is not a part of  mediacodec list
+    if (componentName &&
+            !strncmp("OMX.qcom.audio.encoder.aac", componentName, 26)) {
+        *quirks = 0;
+        return true;
+    }
+#endif
 
     ssize_t index = list->findCodecByName(componentName);
 
@@ -674,6 +698,8 @@ status_t OMXCodec::configureCodec(const sp<MetaData> &meta) {
 
             ExtendedCodec::configureFramePackingFormat(
                     meta, mOMX, mNode, mComponentName);
+            ExtendedCodec::enableSmoothStreaming(
+                    mOMX, mNode, &mInSmoothStreamingMode, mComponentName);
         }
     }
 
@@ -1060,8 +1086,8 @@ status_t OMXCodec::setupErrorCorrectionParameters() {
     }
 
     errorCorrectionType.bEnableHEC = OMX_FALSE;
-    errorCorrectionType.bEnableResync = OMX_TRUE;
-    errorCorrectionType.nResynchMarkerSpacing = 256;
+    errorCorrectionType.bEnableResync = OMX_FALSE;
+    errorCorrectionType.nResynchMarkerSpacing = 0;
     errorCorrectionType.bEnableDataPartitioning = OMX_FALSE;
     errorCorrectionType.bEnableRVLC = OMX_FALSE;
 
@@ -1497,7 +1523,9 @@ OMXCodec::OMXCodec(
       mNativeWindow(
               (!strncmp(componentName, "OMX.google.", 11))
                         ? NULL : nativeWindow),
-      mNumBFrames(0) {
+      mNumBFrames(0),
+      mInSmoothStreamingMode(false),
+      mOutputCropChanged(false) {
     mPortStatus[kPortIndexInput] = ENABLED;
     mPortStatus[kPortIndexOutput] = ENABLED;
 
@@ -1643,6 +1671,8 @@ status_t OMXCodec::init() {
 
     err = allocateBuffers();
     if (err != (status_t)OK) {
+        CODEC_LOGE("Allocate Buffer failed - error = %d", err);
+        setState(ERROR);
         return err;
     }
 
@@ -1768,6 +1798,7 @@ status_t OMXCodec::allocateBuffersOnPort(OMX_U32 portIndex) {
         info.mStatus = OWNED_BY_US;
         info.mMem = mem;
         info.mMediaBuffer = NULL;
+        info.mOutputCropChanged = false;
 
         if (portIndex == kPortIndexOutput) {
             if (!(mOMXLivesLocally
@@ -2059,7 +2090,12 @@ OMXCodec::BufferInfo* OMXCodec::dequeueBufferFromNativeWindow() {
     // Dequeue the next buffer from the native window.
     ANativeWindowBuffer* buf;
     int fenceFd = -1;
+
+    // dequeue-and-wait can block. relinquish mLock to
+    // let other thread (CallbackDispatcher) do some useful work
+    mLock.unlock();
     int err = native_window_dequeue_buffer_and_wait(mNativeWindow.get(), &buf);
+    mLock.lock();
     if (err != 0) {
       CODEC_LOGE("dequeueBuffer failed w/ error 0x%08x", err);
 
@@ -2453,6 +2489,10 @@ void OMXCodec::on_message(const omx_message &msg) {
                     mTargetTimeUs = -1;
                 }
 
+                if (mOutputCropChanged) {
+                    mOutputCropChanged = false;
+                    info->mOutputCropChanged = true;
+                }
                 mFilledBuffers.push_back(i);
                 mBufferFilled.signal();
                 if (mIsEncoder) {
@@ -4128,6 +4168,10 @@ status_t OMXCodec::read(
     }
     *buffer = info->mMediaBuffer;
 
+    if (info->mOutputCropChanged) {
+        initNativeWindowCrop();
+        info->mOutputCropChanged = false;
+    }
     return OK;
 }
 
@@ -4736,7 +4780,11 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                 }
 
                 if (mNativeWindow != NULL) {
-                     initNativeWindowCrop();
+                     if (mInSmoothStreamingMode) {
+                         mOutputCropChanged = true;
+                     } else {
+                         initNativeWindowCrop();
+                     }
                 }
             } else {
                 ExtendedUtils::HFR::copyHFRParams(inputFormat, mOutputFormat);

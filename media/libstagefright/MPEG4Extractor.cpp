@@ -525,14 +525,14 @@ sp<MetaData> MPEG4Extractor::getTrackMetaData(
                 }
             } else {
                 uint32_t sampleIndex;
-                uint32_t sampleTime;
+                uint64_t sampleTime;
                 if (track->sampleTable->findThumbnailSample(&sampleIndex) == OK
                         && track->sampleTable->getMetaDataForSample(
                             sampleIndex, NULL /* offset */, NULL /* size */,
                             &sampleTime) == OK) {
                     track->meta->setInt64(
                             kKeyThumbnailTime,
-                            ((int64_t)sampleTime * 1000000) / track->timescale);
+                            (sampleTime * 1000000) / track->timescale);
                 }
             }
         }
@@ -2356,6 +2356,10 @@ status_t MPEG4Extractor::verifyTrack(Track *track) {
 status_t MPEG4Extractor::updateAudioTrackInfoFromESDS_MPEG4Audio(
         const void *esds_data, size_t esds_size) {
     ESDS esds(esds_data, esds_size);
+    static uint32_t kSamplingRate[] = {
+        96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050,
+        16000, 12000, 11025, 8000, 7350
+    };
 
     uint8_t objectTypeIndication;
     if (esds.getObjectTypeIndication(&objectTypeIndication) != OK) {
@@ -2417,7 +2421,9 @@ status_t MPEG4Extractor::updateAudioTrackInfoFromESDS_MPEG4Audio(
     uint32_t freqIndex = br.getBits(4);
 
     int32_t sampleRate = 0;
+    int32_t extSampleRate = 0;
     int32_t numChannels = 0;
+
     if (freqIndex == 15) {
         if (csd_size < 5) {
             return ERROR_MALFORMED;
@@ -2425,30 +2431,27 @@ status_t MPEG4Extractor::updateAudioTrackInfoFromESDS_MPEG4Audio(
         sampleRate = br.getBits(24);
         numChannels = br.getBits(4);
     } else {
-        numChannels = br.getBits(4);
-        if (objectType == 5) {
-            // SBR specific config per 14496-3 table 1.13
-            freqIndex = br.getBits(4);
-            if (freqIndex == 15) {
-                if (csd_size < 8) {
-                    return ERROR_MALFORMED;
-                }
-                sampleRate = br.getBits(24);
-            }
+        if (freqIndex == 13 || freqIndex == 14) {
+            return ERROR_MALFORMED;
         }
+        numChannels = br.getBits(4);
+        sampleRate = kSamplingRate[freqIndex];
+    }
+    if (objectType == 5 || objectType == 29) {
+        // SBR specific config per 14496-3 table 1.13
+        freqIndex = br.getBits(4);
 
-        if (sampleRate == 0) {
-            static uint32_t kSamplingRate[] = {
-                96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050,
-                16000, 12000, 11025, 8000, 7350
-            };
-
-            if (freqIndex == 13 || freqIndex == 14) {
+        if (freqIndex == 13 || freqIndex == 14) {
+            return ERROR_MALFORMED;
+        }
+        if (freqIndex == 15) {
+            if (csd_size < 8) {
                 return ERROR_MALFORMED;
             }
-
-            sampleRate = kSamplingRate[freqIndex];
+            extSampleRate = br.getBits(24);
         }
+        extSampleRate = kSamplingRate[freqIndex];
+        mLastTrack->meta->setInt32(kKeyExtSampleRate, extSampleRate);
     }
 
     if (numChannels == 0) {
@@ -2464,6 +2467,7 @@ status_t MPEG4Extractor::updateAudioTrackInfoFromESDS_MPEG4Audio(
     }
 
     mLastTrack->meta->setInt32(kKeySampleRate, sampleRate);
+    mLastTrack->meta->setInt32(kKeyAACProfile, objectType);
 
     int32_t prevChannelCount;
     CHECK(mLastTrack->meta->findInt32(kKeyChannelCount, &prevChannelCount));
@@ -3212,7 +3216,7 @@ status_t MPEG4Source::read(
                     sampleIndex, &syncSampleIndex, findFlags);
         }
 
-        uint32_t sampleTime;
+        uint64_t sampleTime;
         if (err == OK) {
             err = mSampleTable->getMetaDataForSample(
                     sampleIndex, NULL, NULL, &sampleTime);
@@ -3236,7 +3240,7 @@ status_t MPEG4Source::read(
         }
 
 #if 0
-        uint32_t syncSampleTime;
+        uint64_t syncSampleTime;
         CHECK_EQ(OK, mSampleTable->getMetaDataForSample(
                     syncSampleIndex, NULL, NULL, &syncSampleTime));
 
@@ -3258,7 +3262,7 @@ status_t MPEG4Source::read(
 
     off64_t offset;
     size_t size;
-    uint32_t cts;
+    uint64_t cts;
     bool isSyncSample;
     bool newBuffer = false;
     if (mBuffer == NULL) {
@@ -3299,7 +3303,7 @@ status_t MPEG4Source::read(
             mBuffer->set_range(0, size);
             mBuffer->meta_data()->clear();
             mBuffer->meta_data()->setInt64(
-                    kKeyTime, ((int64_t)cts * 1000000) / mTimescale);
+                    kKeyTime, (cts * 1000000) / mTimescale);
 
             if (targetSampleTimeUs >= 0) {
                 mBuffer->meta_data()->setInt64(
@@ -3421,7 +3425,7 @@ status_t MPEG4Source::read(
 
         mBuffer->meta_data()->clear();
         mBuffer->meta_data()->setInt64(
-                kKeyTime, ((int64_t)cts * 1000000) / mTimescale);
+                kKeyTime, (cts * 1000000) / mTimescale);
 
         if (targetSampleTimeUs >= 0) {
             mBuffer->meta_data()->setInt64(

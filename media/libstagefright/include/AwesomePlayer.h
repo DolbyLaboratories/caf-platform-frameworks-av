@@ -231,6 +231,7 @@ private:
     void postAudioTearDownEvent(int64_t delayUs);
 
     status_t play_l();
+    status_t fallbackToSWDecoder();
 
     MediaBuffer *mVideoBuffer;
 
@@ -320,6 +321,7 @@ private:
     void printStats();
     int64_t getTimeOfDayUs();
     bool mStatistics;
+    int64_t mLateAVSyncMargin;
 
     struct TrackStat {
         String8 mMIME;

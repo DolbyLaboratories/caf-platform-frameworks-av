@@ -4465,6 +4465,9 @@ void AudioFlinger::OffloadThread::flushHw_l()
     mBytesRemaining = 0;
     mPausedWriteLength = 0;
     mPausedBytesRemaining = 0;
+    // Treat flush as moving OffloadThread state back to Idle.
+    mHwPaused = false;
+
     if (mUseAsyncWrite) {
         // discard any pending drain or write ack by incrementing sequence
         mWriteAckSequence = (mWriteAckSequence + 2) & ~1;
@@ -5031,7 +5034,7 @@ sp<AudioFlinger::RecordThread::RecordTrack>  AudioFlinger::RecordThread::createR
         if (track->getCblk() == 0) {
             ALOGE("createRecordTrack_l() no control block");
             lStatus = NO_MEMORY;
-            track.clear();
+            // track must be cleared from the caller as the caller has the AF lock
             goto Exit;
         }
         mTracks.add(track);
