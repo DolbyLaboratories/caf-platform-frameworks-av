@@ -17,7 +17,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2011-2012 Dolby Laboratories, Inc.
+ *  (C) 2011-2014 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -527,13 +527,11 @@ ATSParser::Stream::Stream(
 
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
         case STREAMTYPE_DDP_AC3_AUDIO:
-            // TODO FIXME verify!
             mQueue = new ElementaryStreamQueue(
                     ElementaryStreamQueue::DDP_AC3_AUDIO);
             break;
 
         case STREAMTYPE_DDP_EC3_AUDIO:
-            // TODO FIXME verify!
             mQueue = new ElementaryStreamQueue(
                     ElementaryStreamQueue::DDP_EC3_AUDIO);
             break;
