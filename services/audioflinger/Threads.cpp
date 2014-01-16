@@ -181,7 +181,7 @@ DsNativeInterface *DsNativeInterface::instance()
     return mInstance;
 }
 
-DsNativeInterface::DsNativeInterface() :
+DsNativeInterface::DsNativeInterface() : mDsNativeSetParam(NULL),
     mDsVolL(0), mDsVolR(0), mMixerVolL(0), mMixerVolR(0),
     mDirectVolL(0), mDirectVolR(0), mOffloadVolL(0), mOffloadVolR(0)
 {
