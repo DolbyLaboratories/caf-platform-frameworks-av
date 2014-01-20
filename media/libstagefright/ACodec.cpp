@@ -69,6 +69,13 @@
 
 namespace android {
 
+// OMX Spec defines less than 50 color formats. If the query for
+// color format is executed for more than kMaxColorFormatSupported,
+// the query will fail to avoid looping forever.
+// 1000 is more than enough for us to tell whether the omx
+// component in question is buggy or not.
+const static uint32_t kMaxColorFormatSupported = 1000;
+
 template<class T>
 static void InitOMXParams(T *params) {
     params->nSize = sizeof(T);
@@ -398,7 +405,8 @@ ACodec::ACodec()
       mDequeueCounter(0),
       mStoreMetaDataInOutputBuffers(false),
       mMetaDataBuffersToSubmit(0),
-      mRepeatFrameDelayUs(-1ll) {
+      mRepeatFrameDelayUs(-1ll),
+      mHaveNativeWindow(false) {
     mUninitializedState = new UninitializedState(this);
     mLoadedState = new LoadedState(this);
     mLoadedToIdleState = new LoadedToIdleState(this);
@@ -1150,11 +1158,11 @@ status_t ACodec::configureCodec(
 
     // Always try to enable dynamic output buffers on native surface
     sp<RefBase> obj;
-    int32_t haveNativeWindow = msg->findObject("native-window", &obj) &&
-            obj != NULL;
+    mHaveNativeWindow = msg->findObject("native-window", &obj) &&
+                        obj != NULL;
     mStoreMetaDataInOutputBuffers = false;
     bool bAdaptivePlaybackMode = false;
-    if (!encoder && video && haveNativeWindow) {
+    if (!encoder && video && mHaveNativeWindow) {
         int32_t preferAdaptive = 0;
         if (msg->findInt32("prefer-adaptive-playback", &preferAdaptive)
                 && preferAdaptive == 1) {
@@ -1761,12 +1769,41 @@ status_t ACodec::setSupportedOutputFormat() {
     InitOMXParams(&format);
     format.nPortIndex = kPortIndexOutput;
     format.nIndex = 0;
+    int32_t colorFormat;
 
     status_t err = mOMX->getParameter(
             mNode, OMX_IndexParamVideoPortFormat,
             &format, sizeof(format));
     CHECK_EQ(err, (status_t)OK);
     CHECK_EQ((int)format.eCompressionFormat, (int)OMX_VIDEO_CodingUnused);
+
+    if (mHaveNativeWindow == false) {
+        colorFormat = OMX_COLOR_FormatYUV420Planar;
+
+        OMX_U32 index = 0;
+        format.nIndex = index;
+        while (true) {
+            if (OMX_ErrorNone != mOMX->getParameter(
+                    mNode, OMX_IndexParamVideoPortFormat,
+                    &format, sizeof(format))) {
+                break;
+            }
+            // Make sure that omx component does not overwrite
+            // the incremented index (bug 2897413).
+            CHECK_EQ(index, format.nIndex);
+            if (format.eColorFormat == colorFormat) {
+                ALOGV("Found supported color format: %d", format.eColorFormat);
+                break;  // colorFormat is supported!
+            }
+            ++index;
+            format.nIndex = index;
+
+            if (index >= kMaxColorFormatSupported) {
+                ALOGE("More than %ld color formats are supported???", index);
+                break;
+            }
+        }
+    }
 
     return mOMX->setParameter(
             mNode, OMX_IndexParamVideoPortFormat,
