@@ -1,4 +1,4 @@
-/*Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/*Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -54,6 +54,10 @@ static const int64_t kMaxAVSyncLateMargin     = 250000;
 
 #include "include/ExtendedExtractor.h"
 #include "include/avc_utils.h"
+#include <fcntl.h>
+#include <linux/msm_ion.h>
+#define MEM_DEVICE "/dev/ion"
+#define MEM_HEAP_ID ION_CP_MM_HEAP_ID
 
 namespace android {
 
@@ -507,7 +511,6 @@ bool ExtendedUtils::checkIsThumbNailMode(const uint32_t flags, char* componentNa
     return isInThumbnailMode;
 }
 
-
 void ExtendedUtils::helper_Mpeg4ExtractorCheckAC3EAC3(MediaBuffer *buffer,
                                                         sp<MetaData> &format,
                                                         size_t size) {
@@ -541,6 +544,82 @@ int32_t ExtendedUtils::getEncoderTypeFlags() {
     }
     return flags;
 
+}
+
+void ExtendedUtils::prefetchSecurePool(const char *uri)
+{
+    if (!strncasecmp("widevine://", uri, 11)) {
+        ALOGV("Widevine streaming content\n");
+        createSecurePool();
+    }
+}
+
+void ExtendedUtils::prefetchSecurePool(int fd)
+{
+    char symName[40] = {0};
+    char fileName[256] = {0};
+    char* kSuffix;
+    size_t kSuffixLength = 0;
+    size_t fileNameLength;
+
+    snprintf(symName, sizeof(symName), "/proc/%d/fd/%d", getpid(), fd);
+
+    if (readlink( symName, fileName, (sizeof(fileName) - 1)) != -1 ) {
+        kSuffix = (char *)".wvm";
+        kSuffixLength = strlen(kSuffix);
+        fileNameLength = strlen(fileName);
+
+        if (!strcmp(&fileName[fileNameLength - kSuffixLength], kSuffix)) {
+            ALOGV("Widevine local content\n");
+            createSecurePool();
+        }
+    }
+}
+
+void ExtendedUtils::createSecurePool()
+{
+    struct ion_prefetch_data prefetch_data;
+    struct ion_custom_data d;
+    int ion_dev_flag = O_RDONLY;
+    int rc = 0;
+    int fd = open (MEM_DEVICE, ion_dev_flag);
+
+    if (fd < 0) {
+        ALOGE("opening ion device failed with fd = %d", fd);
+    } else {
+        prefetch_data.heap_id = ION_HEAP(MEM_HEAP_ID);
+        prefetch_data.len = 0x0;
+        d.cmd = ION_IOC_PREFETCH;
+        d.arg = (unsigned long int)&prefetch_data;
+        rc = ioctl(fd, ION_IOC_CUSTOM, &d);
+        if (rc != 0) {
+            ALOGE("creating secure pool failed, rc is %d, errno is %d", rc, errno);
+        }
+        close(fd);
+    }
+}
+
+void ExtendedUtils::drainSecurePool()
+{
+    struct ion_prefetch_data prefetch_data;
+    struct ion_custom_data d;
+    int ion_dev_flag = O_RDONLY;
+    int rc = 0;
+    int fd = open (MEM_DEVICE, ion_dev_flag);
+
+    if (fd < 0) {
+        ALOGE("opening ion device failed with fd = %d", fd);
+    } else {
+        prefetch_data.heap_id = ION_HEAP(MEM_HEAP_ID);
+        prefetch_data.len = 0x0;
+        d.cmd = ION_IOC_DRAIN;
+        d.arg = (unsigned long int)&prefetch_data;
+        rc = ioctl(fd, ION_IOC_CUSTOM, &d);
+        if (rc != 0) {
+            ALOGE("draining secure pool failed rc is %d, errno is %d", rc, errno);
+        }
+        close(fd);
+    }
 }
 
 }
@@ -603,7 +682,7 @@ bool ExtendedUtils::UseQCHWAACEncoder(audio_encoder Encoder,int32_t Channel,
 sp<MediaExtractor> ExtendedUtils::MediaExtractor_CreateIfNeeded(sp<MediaExtractor> defaultExt,
                                                             const sp<DataSource> &source,
                                                             const char *mime) {
-                   return defaultExt;
+    return defaultExt;
 }
 
 void ExtendedUtils::helper_addMediaCodec(Vector<MediaCodecList::CodecInfo> &mCodecInfos,
@@ -637,6 +716,14 @@ void ExtendedUtils::helper_Mpeg4ExtractorCheckAC3EAC3(MediaBuffer *buffer,
 int32_t ExtendedUtils::getEncoderTypeFlags() {
     return 0;
 }
+
+void ExtendedUtils::prefetchSecurePool(int fd) {}
+
+void ExtendedUtils::prefetchSecurePool(const char *uri) {}
+
+void ExtendedUtils::createSecurePool() {}
+
+void ExtendedUtils::drainSecurePool() {}
 
 }
 #endif //ENABLE_AV_ENHANCEMENTS
