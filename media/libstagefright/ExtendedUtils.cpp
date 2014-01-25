@@ -576,6 +576,11 @@ void ExtendedUtils::prefetchSecurePool(int fd)
     }
 }
 
+void ExtendedUtils::prefetchSecurePool()
+{
+    createSecurePool();
+}
+
 void ExtendedUtils::createSecurePool()
 {
     struct ion_prefetch_data prefetch_data;
@@ -720,6 +725,8 @@ int32_t ExtendedUtils::getEncoderTypeFlags() {
 void ExtendedUtils::prefetchSecurePool(int fd) {}
 
 void ExtendedUtils::prefetchSecurePool(const char *uri) {}
+
+void ExtendedUtils::prefetchSecurePool() {}
 
 void ExtendedUtils::createSecurePool() {}
 
