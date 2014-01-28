@@ -74,13 +74,29 @@ void ExtendedUtils::HFR::setHFRIfEnabled(
         hfr = 0;
     }
 
-    meta->setInt32(kKeyHFR, hfr);
+    const char *hsr_str = params.get("video-hsr");
+
+    if(hsr_str && !strncmp(hsr_str,"on",2)) {
+         ALOGI("HSR [%d] ON",hfr);
+         meta->setInt32(kKeyHSR, hfr);
+    } else {
+         meta->setInt32(kKeyHFR, hfr);
+    }
 }
 
 status_t ExtendedUtils::HFR::initializeHFR(
         sp<MetaData> &meta, sp<MetaData> &enc_meta,
         int64_t &maxFileDurationUs, video_encoder videoEncoder) {
     status_t retVal = OK;
+
+    //Check HSR first, if HSR is enable set HSR to kKeyFrameRate
+    int32_t hsr =0;
+    if (meta->findInt32(kKeyHSR, &hsr)) {
+        ALOGI("HSR found %d, set this to encoder frame rate",hsr);
+        enc_meta->setInt32(kKeyFrameRate, hsr);
+        return retVal;
+    }
+
     int32_t hfr = 0;
 
     if (!meta->findInt32(kKeyHFR, &hfr)) {
