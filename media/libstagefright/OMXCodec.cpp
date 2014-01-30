@@ -4226,8 +4226,7 @@ status_t OMXCodec::read(
     }
 
     if (seeking) {
-        CHECK_EQ((int)mState, (int)FLUSHING);
-        setState(EXECUTING);
+        CHECK_EQ((int)mState, (int)EXECUTING);
     }
 
     if (mFilledBuffers.empty()) {
