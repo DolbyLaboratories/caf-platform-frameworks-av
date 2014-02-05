@@ -20,7 +20,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2011-2013 Dolby Laboratories, Inc.
+ *  (C) 2011-2014 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -214,7 +214,7 @@ MPEG4DataSource::MPEG4DataSource(const sp<DataSource> &source)
       mCache(NULL) {
       #ifdef DOLBY_UDC
       #if defined (DEBUG_LOG_DDP_DECODER_EXTRA)
-      ALOGE("@DDP MPEG4DataSource::MPEG4DataSource");
+      ALOGD("@DDP MPEG4DataSource::MPEG4DataSource");
       #endif
       #endif //DOLBY_END
 }
@@ -326,7 +326,7 @@ static void hexdump(const void *_data, size_t size) {
 static const char *FourCC2MIME(uint32_t fourcc) {
     #ifdef DOLBY_UDC
     #if defined (DEBUG_LOG_DDP_DECODER_EXTRA)
-    ALOGE("@DDP FourCC2MIME");
+    ALOGD("@DDP FourCC2MIME");
     #endif
     #endif //DOLBY_END
     switch (fourcc) {
@@ -377,12 +377,12 @@ static const char *FourCC2MIME(uint32_t fourcc) {
        #ifdef DOLBY_UDC
         case FOURCC('a', 'c', '-', '3'):
             #if defined (DEBUG_LOG_DDP_DECODER_EXTRA)
-            ALOGE("@DDP Set AC3 mimetype");
+            ALOGD("@DDP Set AC3 mimetype");
             #endif
             return MEDIA_MIMETYPE_AUDIO_AC3;
         case FOURCC('e', 'c', '-', '3'):
             #if defined (DEBUG_LOG_DDP_DECODER_EXTRA)
-            ALOGE("@DDP Set EAC3 mimetype");
+            ALOGD("@DDP Set EAC3 mimetype");
             #endif
             return MEDIA_MIMETYPE_AUDIO_EAC3;
         #endif //DOLBY_END
@@ -390,7 +390,7 @@ static const char *FourCC2MIME(uint32_t fourcc) {
             CHECK(!"should not be here.");
             #ifdef DOLBY_UDC
             #if defined (DEBUG_LOG_DDP_DECODER_EXTRA)
-            ALOGE("@DDP FourCC2Mime default (not found)");
+            ALOGD("@DDP FourCC2Mime default (not found)");
             #endif
             #endif //DOLBY_END
             return NULL;
@@ -426,7 +426,7 @@ MPEG4Extractor::MPEG4Extractor(const sp<DataSource> &source)
       mIsDrm(false) {
       #ifdef DOLBY_UDC
       #if defined (DEBUG_LOG_DDP_DECODER_EXTRA)
-      ALOGE("@DDP MPEG4Extractor::MPEG4Extractor");
+      ALOGD("@DDP MPEG4Extractor::MPEG4Extractor");
       #endif
       #endif //DOLBY_END
 }
@@ -1340,7 +1340,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             }
             #ifdef DOLBY_UDC
             #if defined (DEBUG_LOG_DDP_DECODER_EXTRA)
-            ALOGE("@DDP FourCC:'%s'", FourCC2MIME(chunk_type));
+            ALOGD("@DDP FourCC:'%s'", FourCC2MIME(chunk_type));
             #endif
             #endif //DOLBY_END
             ALOGV("*** coding='%s' %d channels, size %d, rate %d\n",
@@ -2517,7 +2517,7 @@ MPEG4Source::MPEG4Source(
       mSrcBuffer(NULL) {
       #ifdef DOLBY_UDC
       #if defined (DEBUG_LOG_DDP_DECODER_EXTRA)
-      ALOGE("@DDP MPEG4Source::MPEG4Source");
+      ALOGD("@DDP MPEG4Source::MPEG4Source");
       #endif
       #endif //DOLBY_END
 
