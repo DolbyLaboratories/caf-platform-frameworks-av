@@ -2501,7 +2501,7 @@ bool AudioFlinger::PlaybackThread::threadLoop()
             mMixerStatus = prepareTracks_l(&tracksToRemove);
 #ifdef DOLBY_DAP_QDSP
             // If there are no active tracks, then clear pregain value for this thread.
-            if (mMixerStatus != MIXER_TRACKS_READY) {
+            if (mMixerStatus == MIXER_IDLE) {
                 ALOGV("DsNativeInterface: Clearing pregain for threadType=%d flags=%d", mType, mOutput->flags);
                 DsNativeInterface::instance()->setMaxThreadVolume(mType, mOutput->flags, 0, 0);
             }
