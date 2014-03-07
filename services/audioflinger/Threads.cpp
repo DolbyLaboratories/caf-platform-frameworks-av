@@ -253,11 +253,13 @@ void DsNativeInterface::updateDsPregain()
     const uint32_t max_vl = max(mMixerVolL, max(mDirectVolL, mOffloadVolL));
     const uint32_t max_vr = max(mMixerVolR, max(mDirectVolR, mOffloadVolR));
     if (max_vl != mDsVolL || max_vr != mDsVolR) {
-        mDsVolL = max_vl;
-        mDsVolR = max_vr;
-        ALOGD("DsNativeInterface: updateDsPregain calling DsNative::setParameter(DS_PARAM_PREGAIN, [%d, %d])", mDsVolL, mDsVolR);
-        uint32_t pregain[2] = { mDsVolL, mDsVolR };
-        mDsNativeSetParam(DS_PARAM_PREGAIN, pregain);
+        if (max_vl || max_vr) {
+            mDsVolL = max_vl;
+            mDsVolR = max_vr;
+            ALOGD("DsNativeInterface: updateDsPregain calling DsNative::setParameter(DS_PARAM_PREGAIN, [%d, %d])", mDsVolL, mDsVolR);
+            uint32_t pregain[2] = { mDsVolL, mDsVolR };
+            mDsNativeSetParam(DS_PARAM_PREGAIN, pregain);
+        }
     }
 }
 #endif // DOLBY_END
