@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -141,6 +143,11 @@ status_t AudioPlayer::start(bool sourceAlreadyStarted) {
             ALOGE("Couldn't map mime type \"%s\" to a valid AudioSystem::audio_format", mime);
             audioFormat = AUDIO_FORMAT_INVALID;
         } else {
+            // Override audio format for PCM offload
+            if (audioFormat == AUDIO_FORMAT_PCM_16_BIT) {
+                audioFormat = AUDIO_FORMAT_PCM_16_BIT_OFFLOAD;
+            }
+
             ALOGV("Mime type \"%s\" mapped to audio_format 0x%x", mime, audioFormat);
         }
     }
@@ -366,7 +373,11 @@ void AudioPlayer::reset() {
     // to instantiate it again.
     // When offloading, the OMX component is not used so this hack
     // is not needed
-    if (!useOffload()) {
+    sp<MetaData> format = mSource->getFormat();
+    const char *mime;
+    format->findCString(kKeyMIMEType, &mime);
+    if (!useOffload() ||
+        (useOffload() && !strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_RAW))) {
         wp<MediaSource> tmp = mSource;
         mSource.clear();
         while (tmp.promote() != NULL) {
@@ -718,11 +729,11 @@ size_t AudioPlayer::fillBuffer(void *data, size_t size) {
     {
         Mutex::Autolock autoLock(mLock);
         mNumFramesPlayed += size_done / mFrameSize;
-        mNumFramesPlayedSysTimeUs = ALooper::GetNowUs();
 
         if (mReachedEOS) {
             mPinnedTimeUs = mNumFramesPlayedSysTimeUs;
         } else {
+            mNumFramesPlayedSysTimeUs = ALooper::GetNowUs();
             mPinnedTimeUs = -1ll;
         }
     }
@@ -765,14 +776,22 @@ int64_t AudioPlayer::getRealTimeUsLocked() const {
     // compensate using system time.
     int64_t diffUs;
     if (mPinnedTimeUs >= 0ll) {
-        diffUs = mPinnedTimeUs;
+        if(mReachedEOS) {
+            diffUs = ALooper::GetNowUs();
+        } else {
+            diffUs = mPinnedTimeUs;
+        }
     } else {
         diffUs = ALooper::GetNowUs();
     }
 
     diffUs -= mNumFramesPlayedSysTimeUs;
 
-    return result + diffUs;
+    if ((result + diffUs <= mPositionTimeRealUs) || (!mReachedEOS)) {
+        return result + diffUs;
+    } else {
+        return mPositionTimeRealUs;
+    }
 }
 
 int64_t AudioPlayer::getOutputPlayPositionUs_l() const
