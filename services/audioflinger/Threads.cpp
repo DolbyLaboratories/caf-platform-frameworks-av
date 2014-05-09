@@ -1010,6 +1010,9 @@ sp<AudioFlinger::EffectHandle> AudioFlinger::ThreadBase::createEffect_l(
             effect->setDevice(mInDevice);
             effect->setMode(mAudioFlinger->getMode());
             effect->setAudioSource(mAudioSource);
+#ifdef DOLBY_DAP
+            EffectDapController::instance()->effectCreated(effect, this);
+#endif // DOLBY_END
         }
         // create effect handle and connect it to effect module
         handle = new EffectHandle(effect, client, effectClient, priority);
@@ -1095,6 +1098,9 @@ status_t AudioFlinger::ThreadBase::addEffect_l(const sp<EffectModule>& effect)
     effect->setDevice(mInDevice);
     effect->setMode(mAudioFlinger->getMode());
     effect->setAudioSource(mAudioSource);
+#ifdef DOLBY_DAP_HW
+    EffectDapController::instance()->updateOffload(this);
+#endif // DOLBY_END
     return NO_ERROR;
 }
 
@@ -2109,6 +2115,9 @@ ssize_t AudioFlinger::PlaybackThread::threadLoop_write()
         } else {
             bytesWritten = framesWritten;
         }
+#ifdef DOLBY_AUDIO_DUMP
+        EffectDapController::instance()->dumpBuffer(mMixBuffer + offset, bytesWritten);
+#endif // DOLBY_END
         status_t status = mNormalSink->getTimestamp(mLatchD.mTimestamp);
         if (status == NO_ERROR) {
             size_t totalFramesWritten = mNormalSink->framesWritten();
@@ -2169,9 +2178,9 @@ void AudioFlinger::PlaybackThread::threadLoop_drain()
 void AudioFlinger::PlaybackThread::threadLoop_exit()
 {
     // Default implementation has nothing to do
-#ifdef DOLBY_DAP_QDSP
+#ifdef DOLBY_DAP_PREGAIN
     // When a thread is closed set associated volume to 0
-    DsNativeInterface::instance()->setMaxThreadVolume(mType, mOutput->flags, 0, 0);
+    EffectDapController::instance()->updatePregain(mType, mOutput->flags, 0);
 #endif // DOLBY_END
 }
 
@@ -2509,11 +2518,11 @@ bool AudioFlinger::PlaybackThread::threadLoop()
             }
             // mMixerStatusIgnoringFastTracks is also updated internally
             mMixerStatus = prepareTracks_l(&tracksToRemove);
-#ifdef DOLBY_DAP_QDSP
-            // If there are no active tracks, then clear pregain value for this thread.
+#ifdef DOLBY_DAP_PREGAIN
+            // If there are no active tracks, then reset volume to zero for this thread.
             if (mMixerStatus == MIXER_IDLE) {
-                ALOGV("DsNativeInterface: Clearing pregain for threadType=%d flags=%d", mType, mOutput->flags);
-                DsNativeInterface::instance()->setMaxThreadVolume(mType, mOutput->flags, 0, 0);
+                ALOGV("EffectDapController: Reset volumes to zeros for threadType = %d flags = %d", mType, mOutput->flags);
+                EffectDapController::instance()->updatePregain(mType, mOutput->flags, 0);
             }
 #endif // DOLBY_END
 
@@ -3093,8 +3102,9 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
 
     float masterVolume = mMasterVolume;
     bool masterMute = mMasterMute;
-#ifdef DOLBY_DAP_QDSP
-    uint32_t max_vl = 0, max_vr = 0;
+#ifdef DOLBY_DAP_PREGAIN
+    // The maximum volume of left channel and right channel for pregain calculation.
+    uint32_t max_vol = 0;
 #endif // DOLBY_END
 
     if (masterMute) {
@@ -3404,9 +3414,9 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
                 }
                 track->mHasVolumeController = false;
             }
-#ifdef DOLBY_DAP_QDSP
-            max_vl = max(vl, max_vl);
-            max_vr = max(vr, max_vr);
+#ifdef DOLBY_DAP_PREGAIN
+            // Select the maximum volume by scanning all the active audio tracks.
+            max_vol = max(max_vol, max(vl, vr));
 #endif // DOLBY_END
 
             // Convert volumes from 8.24 to 4.12 format
@@ -3587,11 +3597,18 @@ track_is_ready: ;
     if (fastTracks > 0) {
         mixerStatus = MIXER_TRACKS_READY;
     }
-#ifdef DOLBY_DAP_QDSP
-    // Only update pregain if some audio is playing through this thread
+#ifdef DOLBY_DAP_BYPASS_SOUND_TYPES
+    EffectDapController::instance()->checkForBypass(mActiveTracks, mOutput->flags);
+#endif // DOLBY_END
+#ifdef DOLBY_DAP_PREGAIN
+    // Skip the DS pregain setting if there're no active tracks, or all the active tracks are pausing ones,
+    // so that the last pregain will be adopted and zero volume level will not be sent in the 2 cases above.
     if (mMixerStatusIgnoringFastTracks == MIXER_TRACKS_READY) {
-        DsNativeInterface::instance()->setMaxThreadVolume(mType, mOutput->flags, max_vl, max_vr);
+        EffectDapController::instance()->updatePregain(mType, mOutput->flags, max_vol);
     }
+#endif // DOLBY_END
+#ifdef DOLBY_AUDIO_DUMP
+    EffectDapController::instance()->checkDumpEnable();
 #endif // DOLBY_END
     return mixerStatus;
 }
@@ -3867,9 +3884,9 @@ void AudioFlinger::DirectOutputThread::processVolume_l(Track *track, bool lastTr
             if (mOutput->stream->set_volume) {
                 mOutput->stream->set_volume(mOutput->stream, left, right);
             }
-#ifdef DOLBY_DAP_QDSP
-            // Update the volume set for current thread
-            DsNativeInterface::instance()->setMaxThreadVolume(mType, mOutput->flags, vl, vr);
+#if defined(DOLBY_DAP_HW) && defined(DOLBY_DAP_PREGAIN)
+            // Update the volume set for the current thread
+            EffectDapController::instance()->updatePregain(mType, mOutput->flags, max(vl, vr));
 #endif // DOLBY_END
         }
     }

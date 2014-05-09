@@ -78,6 +78,9 @@
 #include "include/FLACDecoder.h"
 #endif
 #include "include/ExtendedPrefetchSource.h"
+#ifdef DOLBY_UDC
+#include "ds_config.h"
+#endif // DOLBY_END
 
 namespace android {
 
@@ -1581,6 +1584,10 @@ OMXCodec::OMXCodec(
       mSkipCutBuffer(NULL),
       mLeftOverBuffer(NULL),
       mPaused(false),
+#ifdef DOLBY_UDC
+      mDolbyProcessedAudio(false),
+      mDolbyProcessedAudioStateChanged(false),
+#endif // DOLBY_END
       mNativeWindow(
               (!strncmp(componentName, "OMX.google.", 11))
                         ? NULL : nativeWindow),
@@ -1651,6 +1658,8 @@ void OMXCodec::setComponentRole(
             "audio_decoder.ac3", NULL },
         { MEDIA_MIMETYPE_AUDIO_EAC3,
             "audio_decoder.ec3", NULL },
+        { MEDIA_MIMETYPE_AUDIO_EAC3_JOC,
+            "audio_decoder.ec3_joc", NULL },
 #endif // DOLBY_END
         { MEDIA_MIMETYPE_VIDEO_AVC,
             "video_decoder.avc", "video_encoder.avc" },
@@ -2766,6 +2775,14 @@ void OMXCodec::onEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2) {
             break;
         }
 #endif
+#ifdef DOLBY_UDC
+        case OMX_EventDolbyProcessedAudio:
+        {
+            mDolbyProcessedAudio = data1;
+            mDolbyProcessedAudioStateChanged = true;
+            break;
+        }
+#endif // DOLBY_END
 
         default:
         {
@@ -4378,6 +4395,14 @@ status_t OMXCodec::read(
         initNativeWindowCrop();
         info->mOutputCropChanged = false;
     }
+#ifdef DOLBY_UDC
+    if (mDolbyProcessedAudioStateChanged) {
+        mDolbyProcessedAudioStateChanged = false;
+        return mDolbyProcessedAudio
+            ? INFO_DOLBY_PROCESSED_AUDIO_START
+            : INFO_DOLBY_PROCESSED_AUDIO_STOP;
+    }
+#endif  // DOLBY_END
     return OK;
 }
 

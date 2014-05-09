@@ -78,6 +78,7 @@ extern const char *MEDIA_MIMETYPE_TEXT_3GPP;
 extern const char *MEDIA_MIMETYPE_TEXT_SUBRIP;
 
 #ifdef DOLBY_UDC
+extern const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC;
 extern const char *MEDIA_MIMETYPE_AUDIO_EAC3;
 extern const char *MEDIA_MIMETYPE_AUDIO_AC3;
 #endif // DOLBY_END

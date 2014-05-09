@@ -78,6 +78,7 @@ static const struct {
 #ifdef DOLBY_UDC
     { "OMX.dolby.ac3.decoder", "ddpdec", "audio_decoder.ac3" },
     { "OMX.dolby.ec3.decoder", "ddpdec", "audio_decoder.ec3" },
+    { "OMX.dolby.ec3_joc.decoder", "ddpdec", "audio_decoder.ec3_joc" },
 #endif // DOLBY_END
 };
 

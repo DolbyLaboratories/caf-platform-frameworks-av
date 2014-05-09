@@ -146,7 +146,7 @@ static bool IsSeeminglyValidDDPAudioHeader(const uint8_t *ptr, size_t size) {
     if (ptr[0] == 0x77 && ptr[1] == 0x0b) return true;
     return false;
 }
-#endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
+#endif // DOLBY_END
 status_t ElementaryStreamQueue::appendData(
         const void *data, size_t size, int64_t timeUs) {
     if (mBuffer == NULL || mBuffer->size() == 0) {
@@ -312,7 +312,7 @@ status_t ElementaryStreamQueue::appendData(
                 break;
             }
 
-#endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
+#endif // DOLBY_END
             default:
                 TRESPASS();
                 break;
@@ -395,7 +395,7 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnit() {
         case DDP_AC3_AUDIO:
         case DDP_EC3_AUDIO:
             return dequeueAccessUnitDDP();
-#endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
+#endif // DOLBY_END
         default:
             CHECK_EQ((unsigned)mMode, (unsigned)MPEG_AUDIO);
             return dequeueAccessUnitMPEGAudio();
@@ -646,7 +646,7 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitDDP() {
 
     return accessUnit;
 }
-#endif // DOLBY_UDC && DOLBY_UDC_STREAMING_HLS
+#endif // DOLBY_END
 int64_t ElementaryStreamQueue::fetchTimestamp(size_t size) {
     int64_t timeUs = -1;
     bool first = true;

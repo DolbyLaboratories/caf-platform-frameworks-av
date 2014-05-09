@@ -1004,6 +1004,8 @@ status_t ACodec::setComponentRole(
             "audio_decoder.ac3", NULL },
         { MEDIA_MIMETYPE_AUDIO_EAC3,
             "audio_decoder.ec3", NULL },
+        { MEDIA_MIMETYPE_AUDIO_EAC3_JOC,
+            "audio_decoder.ec3_joc", NULL },
 #endif // DOLBY_END
         { MEDIA_MIMETYPE_VIDEO_AVC,
             "video_decoder.avc", "video_encoder.avc" },
