@@ -13,6 +13,25 @@
 ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
+**
+** This file was modified by Dolby Laboratories, Inc. The portions of the
+** code that are surrounded by "DOLBY..." are copyrighted and
+** licensed separately, as follows:
+**
+**  (C) 2011-2014 Dolby Laboratories, Inc.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**    http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
 */
 
 
@@ -78,6 +97,9 @@
 #define ALOGVV(a...) do { } while(0)
 #endif
 
+#ifdef DOLBY_DAP
+#include "EffectDapController_impl.h"
+#endif // DOLBY_END
 namespace android {
 
 static const char kDeadlockedString[] = "AudioFlinger may be deadlocked\n";
@@ -207,6 +229,9 @@ AudioFlinger::AudioFlinger()
         mTeeSinkTrackEnabled = true;
     }
 #endif
+#ifdef DOLBY_DAP
+    EffectDapController::mInstance = new EffectDapController(this);
+#endif // DOLBY_END
 }
 
 void AudioFlinger::onFirstRef()
@@ -236,6 +261,9 @@ void AudioFlinger::onFirstRef()
 
 AudioFlinger::~AudioFlinger()
 {
+#ifdef DOLBY_DAP
+    delete EffectDapController::mInstance;
+#endif // DOLBY_END
     while (!mRecordThreads.isEmpty()) {
         // closeInput_nonvirtual() will remove specified entry from mRecordThreads
         closeInput_nonvirtual(mRecordThreads.keyAt(0));
@@ -2583,6 +2611,11 @@ status_t AudioFlinger::moveEffects(int sessionId, audio_io_handle_t srcOutput,
 
     Mutex::Autolock _dl(dstThread->mLock);
     Mutex::Autolock _sl(srcThread->mLock);
+#ifdef DOLBY_DAP_MOVE_EFFECT
+    if (sessionId == DOLBY_MOVE_EFFECT_SIGNAL) {
+        return EffectDapController::instance()->moveEffect(AUDIO_SESSION_OUTPUT_MIX, srcThread, dstThread);
+    }
+#endif // DOLBY_END
     return moveEffectChain_l(sessionId, srcThread, dstThread, false);
 }
 
@@ -2605,7 +2638,13 @@ status_t AudioFlinger::moveEffectChain_l(int sessionId,
     // Check whether the destination thread has a channel count of FCC_2, which is
     // currently required for (most) effects. Prevent moving the effect chain here rather
     // than disabling the addEffect_l() call in dstThread below.
+#ifdef DOLBY_DAP_HW
+    // Allow DAP effect to move to any track. This also affects other effects attached to
+    // the session 0.
+    if (sessionId != AUDIO_SESSION_OUTPUT_MIX && dstThread->mChannelCount != FCC_2) {
+#else
     if (dstThread->mChannelCount != FCC_2) {
+#endif
         ALOGW("moveEffectChain_l() effect chain failed because"
                 " destination thread %p channel count(%u) != %u",
                 dstThread, dstThread->mChannelCount, FCC_2);
@@ -2663,6 +2702,13 @@ status_t AudioFlinger::moveEffectChain_l(int sessionId,
     if (status != NO_ERROR) {
         for (size_t i = 0; i < removed.size(); i++) {
             srcThread->addEffect_l(removed[i]);
+#ifdef DOLBY_DAP_MOVE_EFFECT
+            // removeEffect_l() has stopped the effect if it was active so it must be restarted
+            if (effect->state() == EffectModule::ACTIVE ||
+                    effect->state() == EffectModule::STOPPING) {
+                effect->start();
+            }
+#endif // DOLBY_END
             if (dstChain != 0 && reRegister) {
                 AudioSystem::unregisterEffect(removed[i]->id());
                 AudioSystem::registerEffect(&removed[i]->desc(),
