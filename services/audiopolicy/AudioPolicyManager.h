@@ -866,6 +866,11 @@ private:
         bool mIsInputRequestOnProgress;
 #endif
 
+#if defined(DOLBY_UDC) || defined(DOLBY_DAP_MOVE_EFFECT)
+protected:
+#include "DolbyAudioPolicy.h"
+        DolbyAudioPolicy mDolbyAudioPolicy;
+#endif // DOLBY_END
 };
 
 };
