@@ -529,9 +529,9 @@ ATSParser::Stream::Stream(
             break;
 
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-        case STREAMTYPE_DDP_EC3_AUDIO:
+        case STREAMTYPE_EC3:
             mQueue = new ElementaryStreamQueue(
-                    ElementaryStreamQueue::DDP_EC3_AUDIO);
+                    ElementaryStreamQueue::EC3);
             break;
 #endif // DOLBY_END
         default:
@@ -630,7 +630,7 @@ bool ATSParser::Stream::isAudio() const {
         case STREAMTYPE_LPCM_AC3:
         case STREAMTYPE_AC3:
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-        case STREAMTYPE_DDP_EC3_AUDIO:
+        case STREAMTYPE_EC3:
 #endif // DOLBY_END
             return true;
 

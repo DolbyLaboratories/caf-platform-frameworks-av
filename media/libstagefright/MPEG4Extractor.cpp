@@ -410,13 +410,15 @@ static const char *FourCC2MIME(uint32_t fourcc) {
         case FOURCC('s', 'e', 'v', 'c'):
             return MEDIA_MIMETYPE_AUDIO_EVRC;
 
-        case FOURCC('a', 'c', '-', '3'):
-            return MEDIA_MIMETYPE_AUDIO_AC3;
-
-        case FOURCC('e', 'c', '-', '3'):
-            return MEDIA_MIMETYPE_AUDIO_EAC3;
 #endif
-
+#ifdef DOLBY_UDC
+        case FOURCC('a', 'c', '-', '3'):
+            DLOGD("@DDP Track FOURCC = 'ac-3'");
+            return MEDIA_MIMETYPE_AUDIO_AC3;
+        case FOURCC('e', 'c', '-', '3'):
+            DLOGD("@DDP Track FOURCC = 'ec-3'");
+            return MEDIA_MIMETYPE_AUDIO_EAC3;
+#endif // DOLBY_END
         default:
 #ifdef DOLBY_UDC
             ALOGD("@DDP FourCC2Mime default (not found)");
@@ -1411,7 +1413,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
 
             if (chunk_type != FOURCC('e', 'n', 'c', 'a')) {
                 // if the chunk type is enca, we'll get the type from the sinf/frma box later
-#ifdef DOLBY_UDC
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
                 const char *mime;
                 CHECK(mLastTrack->meta->findCString(kKeyMIMEType, &mime));
                 //Track mime-type should have been set at 'trak'
@@ -1422,13 +1424,13 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
 #endif // DOLBY_END
                 mLastTrack->meta->setCString(kKeyMIMEType, FourCC2MIME(chunk_type));
 #ifdef DOLBY_UDC
+                DLOGD("@DDP FourCC:'%s'", FourCC2MIME(chunk_type));
+#endif // DOLBY_END
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
                 }
 #endif // DOLBY_END
                 AdjustChannelsAndRate(chunk_type, &num_channels, &sample_rate);
             }
-#ifdef DOLBY_UDC
-            DLOGD("@DDP FourCC:'%s'", FourCC2MIME(chunk_type));
-#endif // DOLBY_END
             ALOGV("*** coding='%s' %d channels, size %d, rate %d\n",
                    chunk, num_channels, sample_size, sample_rate);
             mLastTrack->meta->setInt32(kKeyChannelCount, num_channels);
@@ -1456,7 +1458,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             break;
         }
 
-#ifdef DOLBY_UDC
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
         case FOURCC('d', 'e', 'c', '3'):
         {
             //Only allowed on E-AC3 tracks

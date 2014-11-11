@@ -428,7 +428,7 @@ status_t ElementaryStreamQueue::appendData(
             }
 
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-            case DDP_EC3_AUDIO:
+            case EC3:
             {
                 uint8_t *ptr = (uint8_t *)data;
 
@@ -537,7 +537,7 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnit() {
         case PCM_AUDIO:
             return dequeueAccessUnitPCMAudio();
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-        case DDP_EC3_AUDIO:
+        case EC3:
             return dequeueAccessUnitDDP();
 #endif // DOLBY_END
         default:

@@ -24,6 +24,25 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * This file was modified by Dolby Laboratories, Inc. The portions of the
+ * code that are surrounded by "DOLBY..." are copyrighted and
+ * licensed separately, as follows:
+ *
+ *  (C) 2011-2014 Dolby Laboratories, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  */
 
 #include <QCMediaDefs.h>
@@ -48,6 +67,9 @@ const char *MEDIA_MIMETYPE_AUDIO_DTS = "audio/dts";
 
 const char *MEDIA_MIMETYPE_AUDIO_DTS_LBR = "audio/dts-lbr";
 const char *MEDIA_MIMETYPE_AUDIO_EAC3 = "audio/eac3";
+#ifdef DOLBY_UDC
+const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC = "audio/eac3-joc";
+#endif // DOLBY_END
 const char *MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS = "audio/amr-wb-plus";
 const char *MEDIA_MIMETYPE_CONTAINER_QCAMR_NB = "audio/qc-amr";
 const char *MEDIA_MIMETYPE_CONTAINER_QCAMR_WB = "audio/qc-amr-wb";

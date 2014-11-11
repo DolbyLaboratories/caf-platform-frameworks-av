@@ -1140,12 +1140,6 @@ status_t ACodec::setComponentRole(
             "audio_decoder.evrchw", "audio_encoder.evrc" },
         { MEDIA_MIMETYPE_AUDIO_QCELP,
             "audio_decoder,qcelp13Hw", "audio_encoder.qcelp13" },
-#ifdef DOLBY_UDC
-        { MEDIA_MIMETYPE_AUDIO_AC3,
-            "audio_decoder.ac3", NULL },
-        { MEDIA_MIMETYPE_AUDIO_EAC3,
-            "audio_decoder.ec3", NULL },
-#endif // DOLBY_END
 #endif
         { MEDIA_MIMETYPE_AUDIO_AAC,
             "audio_decoder.aac", "audio_encoder.aac" },
@@ -1157,12 +1151,6 @@ status_t ACodec::setComponentRole(
             "audio_decoder.g711mlaw", "audio_encoder.g711mlaw" },
         { MEDIA_MIMETYPE_AUDIO_G711_ALAW,
             "audio_decoder.g711alaw", "audio_encoder.g711alaw" },
-#ifdef DOLBY_UDC
-        { MEDIA_MIMETYPE_AUDIO_EAC3,
-            "audio_decoder.ec3", NULL },
-        { MEDIA_MIMETYPE_AUDIO_EAC3_JOC,
-            "audio_decoder.ec3_joc", NULL },
-#endif // DOLBY_END
         { MEDIA_MIMETYPE_VIDEO_AVC,
             "video_decoder.avc", "video_encoder.avc" },
         { MEDIA_MIMETYPE_VIDEO_HEVC,
@@ -1192,6 +1180,12 @@ status_t ACodec::setComponentRole(
             "video_decoder.mpeg2", "video_encoder.mpeg2" },
         { MEDIA_MIMETYPE_AUDIO_AC3,
             "audio_decoder.ac3", "audio_encoder.ac3" },
+#ifdef DOLBY_UDC
+        { MEDIA_MIMETYPE_AUDIO_EAC3,
+            "audio_decoder.ec3", NULL },
+        { MEDIA_MIMETYPE_AUDIO_EAC3_JOC,
+            "audio_decoder.ec3_joc", NULL },
+#endif // DOLBY_END
 #ifdef DTS_CODEC_M_
         { MEDIA_MIMETYPE_AUDIO_DTS,
             "audio_decoder.dts", "audio_encoder.dts" },

@@ -116,7 +116,7 @@ struct ATSParser : public RefBase {
         // it could be LPCM or TrueHD AC3
         STREAMTYPE_LPCM_AC3             = 0x83,
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-        STREAMTYPE_DDP_EC3_AUDIO        = 0x87,
+        STREAMTYPE_EC3        = 0x87,
 #endif // DOLBY_END
     };
 
