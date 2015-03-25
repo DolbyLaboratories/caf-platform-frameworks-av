@@ -275,6 +275,7 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
 
         if (ExtendedUtils::is24bitPCMOffloadEnabled()) {
             if(ExtendedUtils::is24bitPCMOffloaded(audioMeta)) {
+                ExtendedUtils::setKeyPCMFormat(audioMeta, AUDIO_FORMAT_PCM_8_24_BIT);
                 overrideSourceStart = true;
             }
         }
