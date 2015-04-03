@@ -1304,6 +1304,9 @@ status_t NuPlayer::instantiateDecoder(bool audio, sp<DecoderBase> *decoder) {
         notify->setInt32("generation", mAudioDecoderGeneration);
 
         sp<MetaData> audioMeta = mSource->getFormatMeta(true /* audio */);
+        const bool hasVideo = (mSource->getFormat(false /*audio */) != NULL);
+
+        format->setInt32("has-video", hasVideo);
 
         if (mOffloadAudio && !mOffloadDecodedPCM) {
             if (ExtendedUtils::is24bitPCMOffloadEnabled()) {
