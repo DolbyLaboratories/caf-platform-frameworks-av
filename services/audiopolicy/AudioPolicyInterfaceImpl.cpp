@@ -129,8 +129,8 @@ audio_io_handle_t AudioPolicyService::getOutput(audio_stream_type_t stream,
                                     audio_output_flags_t flags,
                                     const audio_offload_info_t *offloadInfo)
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return AUDIO_IO_HANDLE_NONE;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mAudioPolicyManager == NULL) {
         return AUDIO_IO_HANDLE_NONE;
@@ -415,8 +415,8 @@ status_t AudioPolicyService::getStreamVolumeIndex(audio_stream_type_t stream,
 
 uint32_t AudioPolicyService::getStrategyForStream(audio_stream_type_t stream)
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return 0;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mAudioPolicyManager == NULL) {
         return 0;
@@ -428,8 +428,8 @@ uint32_t AudioPolicyService::getStrategyForStream(audio_stream_type_t stream)
 
 audio_devices_t AudioPolicyService::getDevicesForStream(audio_stream_type_t stream)
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return AUDIO_DEVICE_NONE;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mAudioPolicyManager == NULL) {
         return AUDIO_DEVICE_NONE;
@@ -477,8 +477,8 @@ status_t AudioPolicyService::setEffectEnabled(int id, bool enabled)
 
 bool AudioPolicyService::isStreamActive(audio_stream_type_t stream, uint32_t inPastMs) const
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return false;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mAudioPolicyManager == NULL) {
         return false;
@@ -489,8 +489,8 @@ bool AudioPolicyService::isStreamActive(audio_stream_type_t stream, uint32_t inP
 
 bool AudioPolicyService::isStreamActiveRemotely(audio_stream_type_t stream, uint32_t inPastMs) const
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return false;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mAudioPolicyManager == NULL) {
         return false;
