@@ -68,6 +68,9 @@ extern const char *MEDIA_MIMETYPE_AUDIO_AAC_ADTS;
 extern const char *MEDIA_MIMETYPE_AUDIO_MSGSM;
 extern const char *MEDIA_MIMETYPE_AUDIO_AC3;
 extern const char *MEDIA_MIMETYPE_AUDIO_EAC3;
+#ifdef DOLBY_UDC
+extern const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC;
+#endif // DOLBY_END
 
 extern const char *MEDIA_MIMETYPE_CONTAINER_MPEG4;
 extern const char *MEDIA_MIMETYPE_CONTAINER_WAV;
@@ -84,10 +87,6 @@ extern const char *MEDIA_MIMETYPE_TEXT_SUBRIP;
 extern const char *MEDIA_MIMETYPE_TEXT_VTT;
 extern const char *MEDIA_MIMETYPE_TEXT_CEA_608;
 
-#ifdef DOLBY_UDC
-extern const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC;
-extern const char *MEDIA_MIMETYPE_AUDIO_EAC3;
-#endif // DOLBY_END
 }  // namespace android
 
 #endif  // MEDIA_DEFS_H_

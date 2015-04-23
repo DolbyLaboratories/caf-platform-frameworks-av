@@ -53,13 +53,13 @@ struct ElementaryStreamQueue {
         H265,
         AAC,
         AC3,
+#if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
+        EAC3,
+#endif // DOLBY_END
         MPEG_AUDIO,
         MPEG_VIDEO,
         MPEG4_VIDEO,
         PCM_AUDIO,
-#if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-        DDP_EC3_AUDIO,
-#endif // DOLBY_END
     };
 
     enum Flags {

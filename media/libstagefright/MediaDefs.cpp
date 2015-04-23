@@ -66,6 +66,9 @@ const char *MEDIA_MIMETYPE_AUDIO_AAC_ADTS = "audio/aac-adts";
 const char *MEDIA_MIMETYPE_AUDIO_MSGSM = "audio/gsm";
 const char *MEDIA_MIMETYPE_AUDIO_AC3 = "audio/ac3";
 const char *MEDIA_MIMETYPE_AUDIO_EAC3 = "audio/eac3";
+#ifdef DOLBY_UDC
+const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC = "audio/eac3-joc";
+#endif // DOLBY_END
 
 const char *MEDIA_MIMETYPE_CONTAINER_MPEG4 = "video/mp4";
 const char *MEDIA_MIMETYPE_CONTAINER_WAV = "audio/x-wav";
@@ -81,8 +84,5 @@ const char *MEDIA_MIMETYPE_TEXT_3GPP = "text/3gpp-tt";
 const char *MEDIA_MIMETYPE_TEXT_SUBRIP = "application/x-subrip";
 const char *MEDIA_MIMETYPE_TEXT_VTT = "text/vtt";
 const char *MEDIA_MIMETYPE_TEXT_CEA_608 = "text/cea-608";
-#ifdef DOLBY_UDC
-const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC = "audio/eac3-joc";
-#endif // DOLBY_END
 
 }  // namespace android

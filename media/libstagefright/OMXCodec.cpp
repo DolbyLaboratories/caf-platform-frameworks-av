@@ -16,7 +16,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2011-2014 Dolby Laboratories, Inc.
+ *  (C) 2011-2015 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1700,10 +1700,6 @@ OMXCodec::OMXCodec(
       mSkipCutBuffer(NULL),
       mLeftOverBuffer(NULL),
       mPaused(false),
-#ifdef DOLBY_UDC
-      mDolbyProcessedAudio(false),
-      mDolbyProcessedAudioStateChanged(false),
-#endif // DOLBY_END
       mNativeWindow(
               (!strncmp(componentName, "OMX.google.", 11))
                         ? NULL : nativeWindow),
@@ -1756,12 +1752,6 @@ void OMXCodec::setComponentRole(
             "audio_decoder.evrchw", "audio_encoder.evrc" },
         { MEDIA_MIMETYPE_AUDIO_QCELP,
             "audio_decoder,qcelp13Hw", "audio_encoder.qcelp13" },
-#ifdef DOLBY_UDC
-        { MEDIA_MIMETYPE_AUDIO_AC3,
-            "audio_decoder.ac3", NULL },
-        { MEDIA_MIMETYPE_AUDIO_EAC3,
-            "audio_decoder.ec3", NULL },
-#endif // DOLBY_END
 #endif
         { MEDIA_MIMETYPE_VIDEO_AVC,
             "video_decoder.avc", "video_encoder.avc" },
@@ -1789,9 +1779,9 @@ void OMXCodec::setComponentRole(
             "audio_decoder.ac3", "audio_encoder.ac3" },
 #ifdef DOLBY_UDC
         { MEDIA_MIMETYPE_AUDIO_EAC3,
-            "audio_decoder.ec3", NULL },
+            "audio_decoder.eac3", NULL },
         { MEDIA_MIMETYPE_AUDIO_EAC3_JOC,
-            "audio_decoder.ec3_joc", NULL },
+            "audio_decoder.eac3_joc", NULL },
 #endif // DOLBY_END
 #ifdef DTS_CODEC_M_
         { MEDIA_MIMETYPE_AUDIO_DTS,
@@ -2882,14 +2872,6 @@ void OMXCodec::onEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2) {
             break;
         }
 #endif
-#ifdef DOLBY_UDC
-        case OMX_EventDolbyProcessedAudio:
-        {
-            mDolbyProcessedAudio = data1;
-            mDolbyProcessedAudioStateChanged = true;
-            break;
-        }
-#endif // DOLBY_END
 
         default:
         {
@@ -4466,14 +4448,6 @@ status_t OMXCodec::read(
         initNativeWindowCrop();
         info->mOutputCropChanged = false;
     }
-#ifdef DOLBY_UDC
-    if (mDolbyProcessedAudioStateChanged) {
-        mDolbyProcessedAudioStateChanged = false;
-        return mDolbyProcessedAudio
-            ? INFO_DOLBY_PROCESSED_AUDIO_START
-            : INFO_DOLBY_PROCESSED_AUDIO_STOP;
-    }
-#endif  // DOLBY_END
     return OK;
 }
 
@@ -4747,6 +4721,23 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                             ? numChannels : params.nChannels);
 
                 mOutputFormat->setInt32(kKeySampleRate, params.nSamplingRate);
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+                if(mState == LOADED) {
+                    OMX_INDEXTYPE idxProcessAudio;
+                    err = mOMX->getExtensionIndex(mNode,
+                            OMX_IndexDolbyProcessedAudioString, &idxProcessAudio);
+                    if (err == NO_ERROR)
+                    {
+                        OMX_BOOL enableCpProcess = OMX_TRUE;
+                        err = mOMX->setParameter(mNode, idxProcessAudio,
+                                &enableCpProcess, sizeof(enableCpProcess));
+                        if (err == NO_ERROR)
+                        {
+                            mOutputFormat->setInt32(kKeyRendered, 1);
+                        }
+                    }
+                }
+#endif // DOLBY_END
             } else if (audio_def->eEncoding == OMX_AUDIO_CodingAMR) {
                 OMX_AUDIO_PARAM_AMRTYPE amr;
                 InitOMXParams(&amr);

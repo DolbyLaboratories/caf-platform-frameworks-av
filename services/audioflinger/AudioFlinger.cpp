@@ -2731,11 +2731,17 @@ status_t AudioFlinger::moveEffectChain_l(int sessionId,
         return INVALID_OPERATION;
     }
 
+#ifdef DOLBY_DAP_HW
+    // Allow DAP effect to move to any track. This also affects other effects attached to
+    // the session 0.
+    if (sessionId != AUDIO_SESSION_OUTPUT_MIX && dstThread->mChannelCount != FCC_2) {
+#else // DOLBY_END
     // Check whether the destination thread has a channel count of FCC_2, which is
     // currently required for (most) effects. Prevent moving the effect chain here rather
     // than disabling the addEffect_l() call in dstThread below.
     if ((dstThread->type() == ThreadBase::MIXER || dstThread->type() == ThreadBase::DUPLICATING) &&
             dstThread->mChannelCount != FCC_2) {
+#endif // LINE_ADDED_BY_DOLBY
         ALOGW("moveEffectChain_l() effect chain failed because"
                 " destination thread %p channel count(%u) != %u",
                 dstThread, dstThread->mChannelCount, FCC_2);

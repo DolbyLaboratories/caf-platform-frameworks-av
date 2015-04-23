@@ -12,6 +12,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * This file was modified by Dolby Laboratories, Inc. The portions of the
+ * code that are surrounded by "DOLBY..." are copyrighted and
+ * licensed separately, as follows:
+ *
+ *  (C) 2014 Dolby Laboratories, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  */
 
 //#define LOG_NDEBUG 0
@@ -52,6 +71,9 @@
 #include "ESDS.h"
 #include <media/stagefright/Utils.h>
 #include "ExtendedUtils.h"
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+#include "ds_config.h"
+#endif // DOLBY_END
 
 namespace android {
 
@@ -843,6 +865,17 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                         break;                    // Finish anyways.
                 }
                 notifyListener(MEDIA_ERROR, MEDIA_ERROR_UNKNOWN, err);
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+            } else if (what == kWhatDlbCpProc) {
+                String8 params = String8::format("%s=1", DOLBY_PARAM_PROCESSED_AUDIO);
+                if (mAudioSink != NULL) {
+                    ALOGI("%s() Setting %s flag on audio sink", __FUNCTION__, DOLBY_PARAM_PROCESSED_AUDIO);
+                    mAudioSink->setParameters(params);
+                } else {
+                    ALOGE("%s() mAudioSink is not initialized before %s message is received",
+                        __FUNCTION__, DOLBY_PARAM_PROCESSED_AUDIO);
+                }
+#endif // DOLBY_END
             } else {
                 ALOGV("Unhandled decoder notification %d '%c%c%c%c'.",
                       what,
