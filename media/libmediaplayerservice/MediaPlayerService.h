@@ -13,6 +13,25 @@
 ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
+**
+** This file was modified by Dolby Laboratories, Inc. The portions of the
+** code that are surrounded by "DOLBY..." are copyrighted and
+** licensed separately, as follows:
+**
+**  (C) 2011-2014 Dolby Laboratories, Inc.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**    http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
 */
 
 #ifndef ANDROID_MEDIAPLAYERSERVICE_H
@@ -151,6 +170,9 @@ class MediaPlayerService : public BnMediaPlayerService
         static int              mMinBufferCount;  // 12 for emulator; otherwise 4
         audio_output_flags_t    mFlags;
         uint16_t                mBitWidth;
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+        bool                    mProcessedAudio;
+#endif // DOLBY_END
 
         // CallbackData is what is passed to the AudioTrack as the "user" data.
         // We need to be able to target this to a different Output on the fly,

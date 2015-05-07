@@ -13,6 +13,25 @@
 ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
+**
+** This file was modified by Dolby Laboratories, Inc. The portions of the
+** code that are surrounded by "DOLBY..." are copyrighted and
+** licensed separately, as follows:
+**
+**  (C) 2011-2014 Dolby Laboratories, Inc.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**    http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
 */
 
 // Proxy for media player implementations
@@ -83,6 +102,10 @@
 #include "HTTPBase.h"
 #include "RemoteDisplay.h"
 
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+#include <media/AudioParameter.h>
+#include "ds_config.h"
+#endif // DOLBY_END
 namespace {
 using android::media::Metadata;
 using android::status_t;
@@ -1458,6 +1481,9 @@ MediaPlayerService::AudioOutput::AudioOutput(int sessionId, int uid, int pid,
     setMinBufferCount();
     mAttributes = attr;
     mBitWidth = 16;
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+    mProcessedAudio = false;
+#endif // DOLBY_END
 }
 
 MediaPlayerService::AudioOutput::~AudioOutput()
@@ -1543,6 +1569,16 @@ status_t MediaPlayerService::AudioOutput::getFramesWritten(uint32_t *frameswritt
 
 status_t MediaPlayerService::AudioOutput::setParameters(const String8& keyValuePairs)
 {
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+    AudioParameter ap(keyValuePairs);
+    int value = 0;
+    if (ap.getInt(String8(DOLBY_PARAM_PROCESSED_AUDIO), value) == NO_ERROR) {
+        if (value) {
+            ALOGI("%s() Marking audio output as having %s", __FUNCTION__, DOLBY_PARAM_PROCESSED_AUDIO);
+            mProcessedAudio = true;
+        }
+    }
+#endif // DOLBY_END
     if (mTrack == 0) return NO_INIT;
     return mTrack->setParameters(keyValuePairs);
 }
@@ -1807,6 +1843,12 @@ status_t MediaPlayerService::AudioOutput::open(
             res = t->attachAuxEffect(mAuxEffectId);
         }
     }
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+    if (mProcessedAudio) {
+        ALOGV("%s send processedAudio signal to global DAX effect", __FUNCTION__);
+        t->attachAuxEffect(-1);
+    }
+#endif // DOLBY_END
     ALOGV("open() DONE status %d", res);
     return res;
 }

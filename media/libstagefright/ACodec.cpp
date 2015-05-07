@@ -88,6 +88,9 @@
 
 #include "include/ExtendedUtils.h"
 #include "include/avc_utils.h"
+#ifdef DOLBY_UDC
+#include "ds_config.h"
+#endif // DOLBY_END
 
 #ifdef ENABLE_AV_ENHANCEMENTS
 #include <QCMediaDefs.h>
@@ -1154,12 +1157,6 @@ status_t ACodec::setComponentRole(
             "audio_decoder.evrchw", "audio_encoder.evrc" },
         { MEDIA_MIMETYPE_AUDIO_QCELP,
             "audio_decoder,qcelp13Hw", "audio_encoder.qcelp13" },
-#ifdef DOLBY_UDC
-        { MEDIA_MIMETYPE_AUDIO_AC3,
-            "audio_decoder.ac3", NULL },
-        { MEDIA_MIMETYPE_AUDIO_EAC3,
-            "audio_decoder.ec3", NULL },
-#endif // DOLBY_END
 #endif
         { MEDIA_MIMETYPE_AUDIO_AAC,
             "audio_decoder.aac", "audio_encoder.aac" },
@@ -1171,14 +1168,6 @@ status_t ACodec::setComponentRole(
             "audio_decoder.g711mlaw", "audio_encoder.g711mlaw" },
         { MEDIA_MIMETYPE_AUDIO_G711_ALAW,
             "audio_decoder.g711alaw", "audio_encoder.g711alaw" },
-#ifdef ENABLE_AV_ENHANCEMENTS
-#ifdef DOLBY_UDC
-        { MEDIA_MIMETYPE_AUDIO_EAC3,
-            "audio_decoder.ec3", NULL },
-        { MEDIA_MIMETYPE_AUDIO_EAC3_JOC,
-            "audio_decoder.ec3_joc", NULL },
-#endif // DOLBY_END
-#endif
         { MEDIA_MIMETYPE_VIDEO_AVC,
             "video_decoder.avc", "video_encoder.avc" },
         { MEDIA_MIMETYPE_VIDEO_HEVC,
@@ -1212,14 +1201,18 @@ status_t ACodec::setComponentRole(
             "video_decoder.mpeg2", "video_encoder.mpeg2" },
         { MEDIA_MIMETYPE_AUDIO_AC3,
             "audio_decoder.ac3", "audio_encoder.ac3" },
+        { MEDIA_MIMETYPE_AUDIO_EAC3,
+            "audio_decoder.eac3", "audio_encoder.eac3" },
+#ifdef DOLBY_UDC
+        { MEDIA_MIMETYPE_AUDIO_EAC3_JOC,
+            "audio_decoder.eac3_joc", NULL },
+#endif // DOLBY_END
 #ifdef ENABLE_AV_ENHANCEMENTS			
 #ifdef DTS_CODEC_M_
         { MEDIA_MIMETYPE_AUDIO_DTS,
             "audio_decoder.dts", "audio_encoder.dts" },
 #endif
 #endif
-        { MEDIA_MIMETYPE_AUDIO_EAC3,
-            "audio_decoder.eac3", "audio_encoder.eac3" },
     };
 
     static const size_t kNumMimeToRole =
@@ -5307,6 +5300,24 @@ bool ACodec::LoadedState::onMessageReceived(const sp<AMessage> &msg) {
             handled = true;
             break;
         }
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+        case kWhatSetParameters:
+        {
+            sp<AMessage> params;
+            CHECK(msg->findMessage("params", &params));
+
+            status_t err = mCodec->setParameters(params);
+
+            sp<AMessage> reply;
+            if (msg->findMessage("reply", &reply)) {
+                reply->setInt32("err", err);
+                reply->post();
+            }
+
+            handled = true;
+            break;
+        }
+#endif // DOLBY_END
 
         default:
             return BaseState::onMessageReceived(msg);
@@ -5460,6 +5471,18 @@ void ACodec::LoadedState::onStart() {
                 mCodec->mNode, OMX_CommandStateSet, OMX_StateIdle),
              (status_t)OK);
 
+#ifdef DOLBY_UDC
+        // ACodec can handle output format changed event.
+        // Enabling this feature in Dolby Codec.
+        OMX_INDEXTYPE idxSignalEndpChange;
+        status_t err = mCodec->mOMX->getExtensionIndex(mCodec->mNode,
+                    OMX_IndexDolbyReconfigOnEndpChangeString, &idxSignalEndpChange);
+        if (err == NO_ERROR) {
+            OMX_BOOL enableEndpChange = OMX_TRUE;
+            err = mCodec->mOMX->setParameter(mCodec->mNode, idxSignalEndpChange,
+                &enableEndpChange, sizeof(enableEndpChange));
+        }
+#endif // DOLBY_END
     mCodec->changeState(mCodec->mLoadedToIdleState);
 }
 
@@ -5880,6 +5903,23 @@ status_t ACodec::setParameters(const sp<AMessage> &params) {
             return err;
         }
     }
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+    int32_t enableProcessedAudio;
+    if (params->findInt32(DOLBY_PARAM_PROCESSED_AUDIO, &enableProcessedAudio)) {
+        ALOGI("%s() Received %s=%d", __FUNCTION__,
+            DOLBY_PARAM_PROCESSED_AUDIO, enableProcessedAudio);
+        OMX_INDEXTYPE idxProcessAudio;
+        status_t err = mOMX->getExtensionIndex(mNode,
+                    OMX_IndexDolbyProcessedAudioString, &idxProcessAudio);
+        if (err == NO_ERROR) {
+            OMX_BOOL enableCpProcess = enableProcessedAudio ? OMX_TRUE : OMX_FALSE;
+            err = mOMX->setParameter(mNode, idxProcessAudio,
+                &enableCpProcess, sizeof(enableCpProcess));
+            ALOGI_IF(err == NO_ERROR, "%s() Content processing enabled in decoder", __FUNCTION__);
+        }
+        return err;
+    }
+#endif // DOLBY_END
 
     return OK;
 }

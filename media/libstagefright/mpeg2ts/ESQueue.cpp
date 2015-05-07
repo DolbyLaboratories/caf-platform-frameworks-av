@@ -414,6 +414,35 @@ status_t ElementaryStreamQueue::appendData(
                 break;
             }
 
+#if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
+            case EAC3:
+            {
+                uint8_t *ptr = (uint8_t *)data;
+
+                ssize_t startOffset = -1;
+                for (size_t i = 0; i < size; ++i) {
+                    if (IsSeeminglyValidDDPAudioHeader(&ptr[i], size - i)) {
+                        startOffset = i;
+                        break;
+                    }
+                }
+
+                if (startOffset < 0) {
+                    return ERROR_MALFORMED;
+                }
+
+                if (startOffset > 0) {
+                    ALOGI("found something resembling a DDP audio "
+                         "syncword at offset %ld",
+                         startOffset);
+                }
+
+                data = &ptr[startOffset];
+                size -= startOffset;
+                break;
+            }
+
+#endif // DOLBY_END
             case MPEG_AUDIO:
             {
                 uint8_t *ptr = (uint8_t *)data;
@@ -446,35 +475,6 @@ status_t ElementaryStreamQueue::appendData(
                 break;
             }
 
-#if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-            case DDP_EC3_AUDIO:
-            {
-                uint8_t *ptr = (uint8_t *)data;
-
-                ssize_t startOffset = -1;
-                for (size_t i = 0; i < size; ++i) {
-                    if (IsSeeminglyValidDDPAudioHeader(&ptr[i], size - i)) {
-                        startOffset = i;
-                        break;
-                    }
-                }
-
-                if (startOffset < 0) {
-                    return ERROR_MALFORMED;
-                }
-
-                if (startOffset > 0) {
-                    ALOGI("found something resembling a DDP audio "
-                         "syncword at offset %ld",
-                         startOffset);
-                }
-
-                data = &ptr[startOffset];
-                size -= startOffset;
-                break;
-            }
-
-#endif // DOLBY_END
             default:
                 TRESPASS();
                 break;
@@ -565,16 +565,16 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnit() {
             return dequeueAccessUnitAAC();
         case AC3:
             return dequeueAccessUnitAC3();
+#if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
+        case EAC3:
+            return dequeueAccessUnitDDP();
+#endif // DOLBY_END
         case MPEG_VIDEO:
             return dequeueAccessUnitMPEGVideo();
         case MPEG4_VIDEO:
             return dequeueAccessUnitMPEG4Video();
         case PCM_AUDIO:
             return dequeueAccessUnitPCMAudio();
-#if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-        case DDP_EC3_AUDIO:
-            return dequeueAccessUnitDDP();
-#endif // DOLBY_END
         default:
             CHECK_EQ((unsigned)mMode, (unsigned)MPEG_AUDIO);
             return dequeueAccessUnitMPEGAudio();

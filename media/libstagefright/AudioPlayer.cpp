@@ -98,9 +98,6 @@ AudioPlayer::AudioPlayer(
       mPlaying(false),
       mStartPosUs(0),
       mCreateFlags(flags),
-#ifdef DOLBY_UDC
-      mDolbyProcessedAudio(false),
-#endif //DOLBY_END
       mPauseRequired(false),
       mUseSmallBufs(false) {
 }
@@ -327,8 +324,17 @@ status_t AudioPlayer::start(bool sourceAlreadyStarted) {
 
     mStarted = true;
     mPlaying = true;
-#ifdef DOLBY_UDC
-    updateDolbyProcessedAudioState();
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+    int processedAudio;
+    if(format->findInt32(kKeyRendered, &processedAudio)) {
+        ALOGD("%s Enabling '%s' flag on audio sink.", __FUNCTION__, DOLBY_PARAM_PROCESSED_AUDIO);
+        String8 params = String8::format("%s=1", DOLBY_PARAM_PROCESSED_AUDIO);
+        if (mAudioSink.get() != NULL) {
+            mAudioSink->setParameters(params);
+        } else {
+            mAudioTrack->setParameters(params);
+        }
+    }
 #endif // DOLBY_END
     mPinnedTimeUs = -1ll;
     const char *componentName;
@@ -338,26 +344,6 @@ status_t AudioPlayer::start(bool sourceAlreadyStarted) {
     mPauseRequired = ExtendedCodec::isSourcePauseRequired(componentName);
     return OK;
 }
-#ifdef DOLBY_UDC
-void AudioPlayer::updateDolbyProcessedAudioState() {
-    ALOGD("%s(processed=%d, playing=%d)", __FUNCTION__, mDolbyProcessedAudio, mPlaying);
-    int value = mDolbyProcessedAudio && mPlaying;
-    String8 params = String8::format("%s=%d", DOLBY_PARAM_PROCESSED_AUDIO, value);
-    if (mAudioSink.get() != NULL) {
-        mAudioSink->setParameters(params);
-    } else {
-        mAudioTrack->setParameters(params);
-    }
-}
-
-void AudioPlayer::setDolbyProcessedAudioState(bool processed) {
-    ALOGD("%s(processed=%d)", __FUNCTION__, processed);
-    if(processed != mDolbyProcessedAudio) {
-        mDolbyProcessedAudio = processed;
-        updateDolbyProcessedAudioState();
-    }
-}
-#endif // DOLBY_END
 
 void AudioPlayer::pause(bool playPendingSamples) {
     CHECK(mStarted);
@@ -387,9 +373,6 @@ void AudioPlayer::pause(bool playPendingSamples) {
             mSourcePaused = true;
         }
     }
-#ifdef DOLBY_UDC
-    updateDolbyProcessedAudioState();
-#endif // DOLBY_END
     ALOGI("Pause Playback at %lld",getMediaTimeUs());
 }
 
@@ -411,9 +394,6 @@ status_t AudioPlayer::resume() {
 
     if (err == OK) {
         mPlaying = true;
-#ifdef DOLBY_UDC
-        updateDolbyProcessedAudioState();
-#endif // DOLBY_END
     }
 
     return err;
@@ -424,10 +404,6 @@ void AudioPlayer::reset() {
 
     ALOGI("reset: mPlaying=%d mReachedEOS=%d useOffload=%d",
                                 mPlaying, mReachedEOS, useOffload() );
-#ifdef DOLBY_UDC
-    setDolbyProcessedAudioState(false);
-#endif // DOLBY_END
-
     if (mAudioSink.get() != NULL) {
         mAudioSink->stop();
         // If we're closing and have reached EOS, we don't want to flush
@@ -671,12 +647,6 @@ size_t AudioPlayer::fillBuffer(void *data, size_t size) {
                     return 0;
                 }
             }
-#ifdef DOLBY_UDC
-            if (err == INFO_DOLBY_PROCESSED_AUDIO_START || err == INFO_DOLBY_PROCESSED_AUDIO_STOP) {
-                setDolbyProcessedAudioState(err == INFO_DOLBY_PROCESSED_AUDIO_START);
-                err = OK;
-            }
-#endif // DOLBY_END
 
             CHECK((err == OK && mInputBuffer != NULL)
                    || (err != OK && mInputBuffer == NULL));
@@ -840,10 +810,6 @@ size_t AudioPlayer::fillBuffer(void *data, size_t size) {
 
         if (mReachedEOS) {
             mPinnedTimeUs = mNumFramesPlayedSysTimeUs;
-#ifdef DOLBY_UDC
-            // ReachedEOS, send processed audio == false to AF.
-            setDolbyProcessedAudioState(false);
-#endif // DOLBY_END
         } else {
             mPinnedTimeUs = -1ll;
         }

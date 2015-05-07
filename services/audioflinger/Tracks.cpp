@@ -55,9 +55,9 @@
 #include <media/nbaio/Pipe.h>
 #include <media/nbaio/PipeReader.h>
 #include <audio_utils/minifloat.h>
-#ifdef DOLBY_UDC
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
 #include <media/AudioParameter.h>
-#endif // DOLBY_UDC
+#endif // DOLBY_END
 
 // ----------------------------------------------------------------------------
 
@@ -482,6 +482,9 @@ AudioFlinger::PlaybackThread::Track::~Track()
     if (mSharedBuffer != 0) {
         mSharedBuffer.clear();
     }
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+    EffectDapController::instance()->trackDestroyed(mId);
+#endif // DOLBY_END
 }
 
 status_t AudioFlinger::PlaybackThread::Track::initCheck() const
@@ -515,10 +518,6 @@ void AudioFlinger::PlaybackThread::Track::destroy()
         if (isExternalTrack() && !wasActive) {
             AudioSystem::releaseOutput(mThreadIoHandle, mStreamType, (audio_session_t)mSessionId);
         }
-#ifdef DOLBY_UDC
-        // Notify effect DAP controller that processed audio is no longer available
-        EffectDapController::instance()->setProcessedAudioState(mId, false);
-#endif // DOLBY_END
     }
 }
 
@@ -732,6 +731,14 @@ status_t AudioFlinger::PlaybackThread::Track::start(AudioSystem::sync_event_t ev
                 mState = state;
             }
         }
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+        if (mState != state) {
+            // This call will disable content processing in global DAP if this track
+            // is carrying processed audio. The content processing will be re-enabled
+            // when this track has been exhausted by MixerThread::prepareTracks_l()
+            EffectDapController::instance()->trackStateChanged(mId, mState);
+        }
+#endif // DOLBY_END
         // track was already in the active list, not a problem
         if (status == ALREADY_EXISTS) {
             status = NO_ERROR;
@@ -909,12 +916,20 @@ void AudioFlinger::PlaybackThread::Track::reset()
 
 status_t AudioFlinger::PlaybackThread::Track::setParameters(const String8& keyValuePairs)
 {
-#ifdef DOLBY_UDC
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
     AudioParameter ap(keyValuePairs);
     int value = 0;
-    // Bypass DAP if processed audio is flowing through this track.
     if (ap.getInt(String8(DOLBY_PARAM_PROCESSED_AUDIO), value) == NO_ERROR) {
-        return EffectDapController::instance()->setProcessedAudioState(mId, value);
+        if (value) {
+            // Bypass content processing if processed audio is flowing through this track.
+            ALOGI("%s(): Marking track %d as containing processed audio", __FUNCTION__, mId);
+            EffectDapController::instance()->trackContainsProcessedAudio(mId, mState);
+        } else {
+            // Remove the track if it is no longer carrying processed audio.
+            ALOGI("%s(): Clearing track %d processed audio mark", __FUNCTION__, mId);
+            EffectDapController::instance()->trackDestroyed(mId);
+        }
+        return NO_ERROR;
     }
 #endif // DOLBY_END
     sp<ThreadBase> thread = mThread.promote();
@@ -995,6 +1010,14 @@ status_t AudioFlinger::PlaybackThread::Track::getTimestamp(AudioTimestamp& times
 
 status_t AudioFlinger::PlaybackThread::Track::attachAuxEffect(int EffectId)
 {
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+    // The track contains processed audio if EffectId is -1
+    if (EffectId == -1) {
+        ALOGI("%s(): Marking track %d as containing processed audio", __FUNCTION__, mId);
+        EffectDapController::instance()->trackContainsProcessedAudio(mId, mState);
+        return NO_ERROR;
+    }
+#endif // DOLBY_END
     status_t status = DEAD_OBJECT;
     sp<ThreadBase> thread = mThread.promote();
     if (thread != 0) {

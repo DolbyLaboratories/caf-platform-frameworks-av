@@ -12,6 +12,24 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * This file was modified by Dolby Laboratories, Inc. The portions of the
+ * code that are surrounded by "DOLBY..." are copyrighted and
+ * licensed separately, as follows:
+ *
+ *  (C) 2014 Dolby Laboratories, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 
@@ -952,11 +970,6 @@ private:
         bool mIsInputRequestOnProgress;
 #endif
 
-#if defined(DOLBY_UDC) || defined(DOLBY_DAP_MOVE_EFFECT)
-protected:
-#include "DolbyAudioPolicy.h"
-        DolbyAudioPolicy mDolbyAudioPolicy;
-#endif // DOLBY_END
         // return true if any output is playing anything besides the stream to ignore
         bool isAnyOutputActive(audio_stream_type_t streamToIgnore);
         // event is one of STARTING_OUTPUT, STARTING_BEACON, STOPPING_OUTPUT, STOPPING_BEACON
@@ -978,6 +991,11 @@ protected:
         sp<DeviceDescriptor>  getDeviceDescriptor(const audio_devices_t device,
                                                   const char *device_address);
 
+#if defined(DOLBY_UDC) || defined(DOLBY_DAP_MOVE_EFFECT)
+protected:
+#include "DolbyAudioPolicy.h"
+        DolbyAudioPolicy mDolbyAudioPolicy;
+#endif // DOLBY_END
 };
 
 };
