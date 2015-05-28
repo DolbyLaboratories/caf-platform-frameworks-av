@@ -1806,7 +1806,7 @@ status_t MediaPlayerService::AudioOutput::open(
 #ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
             if (mProcessedAudio) {
                 ALOGV("%s send processedAudio signal to global DAX effect", __FUNCTION__);
-                mTrack->attachAuxEffect(DOLBY_PROCESSED_AUDIO_EFFECT_ID);
+                mTrack->attachAuxEffect(-1);
             } else {
                 ALOGV("%s Mark track as containing no processed audio", __FUNCTION__);
                 String8 params = String8::format("%s=0", DOLBY_PARAM_PROCESSED_AUDIO);
@@ -1856,7 +1856,7 @@ status_t MediaPlayerService::AudioOutput::open(
 #ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
     if (mProcessedAudio) {
         ALOGV("%s send processedAudio signal to global DAX effect", __FUNCTION__);
-        t->attachAuxEffect(DOLBY_PROCESSED_AUDIO_EFFECT_ID);
+        t->attachAuxEffect(-1);
     }
 #endif // DOLBY_END
     ALOGV("open() DONE status %d", res);

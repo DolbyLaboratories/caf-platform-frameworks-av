@@ -17,7 +17,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2011-2014 Dolby Laboratories, Inc.
+ *  (C) 2011-2015 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,9 @@ namespace android {
 ElementaryStreamQueue::ElementaryStreamQueue(Mode mode, uint32_t flags)
     : mMode(mode),
       mFlags(flags) {
+#if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
+    independent_streams_processed = 0;
+#endif //DOLBY_END
 }
 
 sp<MetaData> ElementaryStreamQueue::getFormat() {
@@ -267,7 +270,7 @@ static bool IsSeeminglyValidMPEGAudioHeader(const uint8_t *ptr, size_t size) {
 }
 
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-static bool IsSeeminglyValidDDPAudioHeader(const uint8_t *ptr, size_t size) {
+static bool IsSeeminglyValidEAC3AudioHeader(const uint8_t *ptr, size_t size) {
     if (size < 2) return false;
     if (ptr[0] == 0x0b && ptr[1] == 0x77) return true;
     if (ptr[0] == 0x77 && ptr[1] == 0x0b) return true;
@@ -421,7 +424,7 @@ status_t ElementaryStreamQueue::appendData(
 
                 ssize_t startOffset = -1;
                 for (size_t i = 0; i < size; ++i) {
-                    if (IsSeeminglyValidDDPAudioHeader(&ptr[i], size - i)) {
+                    if (IsSeeminglyValidEAC3AudioHeader(&ptr[i], size - i)) {
                         startOffset = i;
                         break;
                     }
@@ -567,7 +570,7 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnit() {
             return dequeueAccessUnitAC3();
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
         case EAC3:
-            return dequeueAccessUnitDDP();
+            return dequeueAccessUnitEAC3();
 #endif // DOLBY_END
         case MPEG_VIDEO:
             return dequeueAccessUnitMPEGVideo();
@@ -786,28 +789,97 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitAAC() {
 }
 
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-static int
-calc_dd_frame_size(int code)
-{
-    /* tables lifted from TrueHDDecoder.cxx in DMG's decoder framework */
-    static const int FrameSize32K[] = { 96, 96, 120, 120, 144, 144, 168, 168, 192, 192, 240, 240, 288, 288, 336, 336, 384, 384, 480, 480, 576, 576, 672, 672, 768, 768, 960, 960, 1152, 1152, 1344, 1344, 1536, 1536, 1728, 1728, 1920, 1920 };
-    static const int FrameSize44K[] = { 69, 70, 87, 88, 104, 105, 121, 122, 139, 140, 174, 175, 208, 209, 243, 244, 278, 279, 348, 349, 417, 418, 487, 488, 557, 558, 696, 697, 835, 836, 975, 976, 114, 1115, 1253, 1254, 1393, 1394 };
-    static const int FrameSize48K[] = { 64, 64, 80, 80, 96, 96, 112, 112, 128, 128, 160, 160, 192, 192, 224, 224, 256, 256, 320, 320, 384, 384, 448, 448, 512, 512, 640, 640, 768, 768, 896, 896, 1024, 1024, 1152, 1152, 1280, 1280 };
+/* Based on ATSC Standard: Digital Audio Compression Standard (AC-3, E-AC-3),
+ * Revision B, Document A/52B. 14 June 2005
+ */
+static int getEac3StreamInfo(const uint8_t *ptr, size_t size, int32_t *chanCount,
+                                     int32_t *smplRate, unsigned *chanMap) {
+    static const unsigned acmod_to_nfchans[] = {2, 1, 2, 3, 3, 4, 4, 5};
+    static const unsigned samplingRateTable[2][3] = {{48000, 44100, 32000},
+                                                  {24000, 22050, 16000}};
 
-    int fscod = (code >> 6) & 0x3;
-    int frmsizcod = code & 0x3f;
+    ABitReader bits(ptr, size);
 
-    if (fscod == 0) return 2 * FrameSize48K[frmsizcod];
-    if (fscod == 1) return 2 * FrameSize44K[frmsizcod];
-    if (fscod == 2) return 2 * FrameSize32K[frmsizcod];
+    int32_t channelCount = 0;
+    int32_t sampleRate;
 
-    return 0;
+    // 16 + 2 + 3 + 11 + 2 + 2 + 3 + 1 + 5 + 5 + 1
+    if (bits.numBitsLeft() < 51) {
+        return -1;
+    }
+    if (bits.getBits(16) != 0x0B77) {
+        ALOGE("Invalid syncword in EAC3 header");
+        return -1;
+    }
+
+    unsigned strmtyp = bits.getBits(2);
+    bits.skipBits(14);  // substreamid, frmsiz
+
+    unsigned fscod = bits.getBits(2);
+    int32_t samplingRate = 0;
+    if (fscod == 3) {
+        unsigned fscod2 = bits.getBits(2);
+        samplingRate = samplingRateTable[1][fscod2];
+    } else {
+        bits.skipBits(2);   // numblkscod
+        samplingRate = samplingRateTable[0][fscod];
+    }
+
+    unsigned acmod = bits.getBits(3);
+    unsigned lfeon = bits.getBits(1);
+    bits.skipBits(10);   // bsid, dialnorm
+    if (bits.getBits(1)) {  // compre
+        if (bits.numBitsLeft() < 8) {
+            return -1;
+        }
+        bits.skipBits(8);   //compr
+    }
+    if (!acmod) { // if 1+1 mode (dual mono)
+        if (bits.numBitsLeft() < 6) {
+            return -1;
+        }
+        bits.skipBits(5);   //dialnorm2
+        if (bits.getBits(1)) {  // compr2e
+            if (bits.numBitsLeft() < 8) {
+                return -1;
+            }
+            bits.skipBits(8);   //compr2
+        }
+    }
+
+    // Get channel count for this frame
+    if (!strmtyp) {
+        // Independent (sub)stream. Only indication of channel count is nfchans + lfeon
+        channelCount = acmod_to_nfchans[acmod] + lfeon;
+    }
+    if (strmtyp == 1) { // Dependent substream
+        if (bits.numBitsLeft() < 1) {
+            return -1;
+        }
+        unsigned chanmape = bits.getBits(1);
+        // Ensure dependent substream has chanmap enabled. Otherwise use nfchans + lfeon
+        if (chanmape) {
+            if (bits.numBitsLeft() < 16) {
+                return -1;
+            }
+            unsigned channelmap = bits.getBits(16);
+            *chanMap = channelmap;
+        } else {
+            channelCount = acmod_to_nfchans[acmod] + lfeon;
+        }
+    }
+
+    *chanCount = channelCount;
+    *smplRate = samplingRate;
+
+    return strmtyp;
 }
 
-sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitDDP() {
+sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitEAC3() {
     unsigned int size;
     unsigned char* ptr;
-    int bsid;
+    unsigned bsid;
+    unsigned frmsiz;
     size_t frame_size = 0;
     size_t auSize = 0;
 
@@ -822,26 +894,67 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitDDP() {
 
     if(mFormat == NULL)
     {
-        sp<MetaData> meta = new MetaData;
-        meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_EAC3);
-
-        // Zero values entered to prevent crash
         int32_t sampleRate = 0;
         int32_t numChannels = 0;
-        meta->setInt32(kKeySampleRate, sampleRate);
-        meta->setInt32(kKeyChannelCount, numChannels);
+        unsigned channelMap = 0;
+        int streamType = getEac3StreamInfo(mBuffer->data(), mBuffer->size(),
+                                                   &numChannels, &sampleRate, &channelMap);
+        if (streamType < 0) {
+            ALOGE("Unable to parse EAC3 header for channel count and sample rate");
+            return NULL;
+        }
 
-        mFormat = meta;
+        /* The input to output channel mappings will be the same used by the DD+ decoder when
+           DOLBY_UDC_MULTICHANNEL_PCM_OFFLOAD is true.
+           When DOLBY_UDC_MULTICHANNEL_PCM_OFFLOAD is false the decoder will overwrite the
+           Sample Rate and Channel Count.
+        1.  1.0 , 2.0, 2.1 shall be mapped to 2.0
+        2.  3.0, ..., 5.1 shall be mapped to 5.1
+        3.  6.0, ..., 7.1 shall be mapped to 7.1
+        */
+        if (independent_streams_processed > 0 || streamType == 2) {
+            if (streamType == 1) {
+                if (channelMap & 0x300) {
+                    numChannels = 8;
+                } else {
+                    numChannels = 6;
+                }
+            } else {
+                if (numChannels > 2) {
+                    numChannels = 6;
+                } else {
+                    numChannels = 2;
+                }
+            }
+
+            sp<MetaData> meta = new MetaData;
+            meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_EAC3);
+            meta->setInt32(kKeySampleRate, sampleRate);
+            meta->setInt32(kKeyChannelCount, numChannels);
+
+            ALOGV("Samplerate: %d. NumChannels: %d", sampleRate, numChannels);
+
+            mFormat = meta;
+        }
+        if (streamType == 0) {
+            independent_streams_processed++;
+            independent_stream_num_channels = numChannels;
+        }
     }
 
-    bsid = (ptr[5] >> 3) & 0x1f;
-    if (bsid > 10 && bsid <= 16)
-    {
-        frame_size = 2 * ((((ptr[2] << 8) | ptr[3]) & 0x7ff) + 1);
+    // Decoders with 10 < bsid < 16 are backwards compatible with version 16 decoders.
+    ABitReader bits(ptr, size);
+
+    bits.skipBits(21);          // syncword, strmtyp, substreamid
+    frmsiz = bits.getBits(11);
+    bits.skipBits(8);           // fscod, fscod2/numblkscod, acmod, lfeon
+    bsid = bits.getBits(5);
+    if (bsid > 10 && bsid <= 16) {
+        frame_size = 2 * (frmsiz + 1);
     }
-    else
-    {
-        frame_size = calc_dd_frame_size(ptr[4]);
+    else {
+        ALOGW("bsid %d not supported. Invalid frame size", bsid);
+        return NULL;
     }
 
     if (size < frame_size) {

@@ -17,7 +17,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2011-2012 Dolby Laboratories, Inc.
+ *  (C) 2011-2015 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,7 +98,9 @@ private:
     sp<ABuffer> dequeueAccessUnitMPEG4Video();
     sp<ABuffer> dequeueAccessUnitPCMAudio();
 #if defined(DOLBY_UDC) && defined(DOLBY_UDC_STREAMING_HLS)
-    sp<ABuffer> dequeueAccessUnitDDP();
+    sp<ABuffer> dequeueAccessUnitEAC3();
+    unsigned independent_streams_processed;
+    unsigned independent_stream_num_channels;
 #endif // DOLBY_END
 
     // consume a logical (compressed) access unit of size "size",

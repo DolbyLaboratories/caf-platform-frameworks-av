@@ -18,7 +18,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2014-2015 Dolby Laboratories, Inc.
+ *  (C) 2014 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,6 @@
 #include <audio_utils/minifloat.h>
 #ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
 #include <media/AudioParameter.h>
-#include "ds_config.h"
 #endif // DOLBY_END
 
 // ----------------------------------------------------------------------------
@@ -1012,8 +1011,8 @@ status_t AudioFlinger::PlaybackThread::Track::getTimestamp(AudioTimestamp& times
 status_t AudioFlinger::PlaybackThread::Track::attachAuxEffect(int EffectId)
 {
 #ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
-    // The track contains processed audio if EffectId is DOLBY_PROCESSED_AUDIO_EFFECT_ID
-    if (EffectId == DOLBY_PROCESSED_AUDIO_EFFECT_ID) {
+    // The track contains processed audio if EffectId is -1
+    if (EffectId == -1) {
         ALOGI("%s(): Marking track %d as containing processed audio", __FUNCTION__, mId);
         EffectDapController::instance()->trackContainsProcessedAudio(mId, mState);
         return NO_ERROR;
