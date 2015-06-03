@@ -17,7 +17,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2011-2014 Dolby Laboratories, Inc.
+ *  (C) 2011-2015 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -5301,7 +5301,7 @@ bool ACodec::LoadedState::onMessageReceived(const sp<AMessage> &msg) {
             break;
         }
 #ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
-        case kWhatSetParameters:
+        case ACodec::kWhatSetParameters:
         {
             sp<AMessage> params;
             CHECK(msg->findMessage("params", &params));
@@ -5472,6 +5472,7 @@ void ACodec::LoadedState::onStart() {
              (status_t)OK);
 
 #ifdef DOLBY_UDC
+    if (mCodec->mComponentName.startsWith("OMX.dolby")) {
         // ACodec can handle output format changed event.
         // Enabling this feature in Dolby Codec.
         OMX_INDEXTYPE idxSignalEndpChange;
@@ -5482,6 +5483,7 @@ void ACodec::LoadedState::onStart() {
             err = mCodec->mOMX->setParameter(mCodec->mNode, idxSignalEndpChange,
                 &enableEndpChange, sizeof(enableEndpChange));
         }
+    }
 #endif // DOLBY_END
     mCodec->changeState(mCodec->mLoadedToIdleState);
 }

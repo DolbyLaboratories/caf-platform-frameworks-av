@@ -17,7 +17,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2014 Dolby Laboratories, Inc.
+ *  (C) 2014-2015 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -225,15 +225,17 @@ void NuPlayer::Decoder::onConfigure(const sp<AMessage> &format) {
     // the following should work in configured state
     CHECK_EQ((status_t)OK, mCodec->getInputFormat(&mInputFormat));
 #ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
-    sp<AMessage> params = new AMessage();
-    int32_t enableProcessedAudio = 1;
-    params->setInt32(DOLBY_PARAM_PROCESSED_AUDIO, enableProcessedAudio);
-    err = mCodec->setParameters(params);
-    if (err == OK) {
-        ALOGI("%s() Notifying player that Codec supports %s flag", __FUNCTION__, DOLBY_PARAM_PROCESSED_AUDIO);
-        sp<AMessage> msg = mNotify->dup();
-        msg->setInt32("what", kWhatDlbCpProc);
-        msg->post();
+    if (mComponentName.startsWith("OMX.dolby")) {
+        sp<AMessage> params = new AMessage();
+        int32_t enableProcessedAudio = 1;
+        params->setInt32(DOLBY_PARAM_PROCESSED_AUDIO, enableProcessedAudio);
+        err = mCodec->setParameters(params);
+        if (err == OK) {
+            ALOGI("%s() Notifying player that Codec supports %s flag", __FUNCTION__, DOLBY_PARAM_PROCESSED_AUDIO);
+            sp<AMessage> msg = mNotify->dup();
+            msg->setInt32("what", kWhatDlbCpProc);
+            msg->post();
+        }
     }
 #endif // DOLBY_END
 

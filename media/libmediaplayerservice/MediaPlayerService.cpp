@@ -18,7 +18,7 @@
 ** code that are surrounded by "DOLBY..." are copyrighted and
 ** licensed separately, as follows:
 **
-**  (C) 2011-2014 Dolby Laboratories, Inc.
+**  (C) 2011-2015 Dolby Laboratories, Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -1803,6 +1803,16 @@ status_t MediaPlayerService::AudioOutput::open(
                 mCallbackData->setOutput(this);
             }
             delete newcbd;
+#ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
+            if (mProcessedAudio) {
+                ALOGV("%s send processedAudio signal to global DAX effect", __FUNCTION__);
+                mTrack->attachAuxEffect(DOLBY_PROCESSED_AUDIO_EFFECT_ID);
+            } else {
+                ALOGV("%s Mark track as containing no processed audio", __FUNCTION__);
+                String8 params = String8::format("%s=0", DOLBY_PARAM_PROCESSED_AUDIO);
+                setParameters(params);
+            }
+#endif // DOLBY_END
             return OK;
         }
     }
@@ -1846,7 +1856,7 @@ status_t MediaPlayerService::AudioOutput::open(
 #ifdef DOLBY_UDC_VIRTUALIZE_AUDIO
     if (mProcessedAudio) {
         ALOGV("%s send processedAudio signal to global DAX effect", __FUNCTION__);
-        t->attachAuxEffect(-1);
+        t->attachAuxEffect(DOLBY_PROCESSED_AUDIO_EFFECT_ID);
     }
 #endif // DOLBY_END
     ALOGV("open() DONE status %d", res);
