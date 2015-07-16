@@ -18,7 +18,7 @@
 ** code that are surrounded by "DOLBY..." are copyrighted and
 ** licensed separately, as follows:
 **
-**  (C) 2011-2014 Dolby Laboratories, Inc.
+**  (C) 2011-2015 Dolby Laboratories, Inc.
 ** This file was modified by DTS, Inc. The portions of the
 ** code that are surrounded by "DTS..." are copyrighted and
 ** licensed separately, as follows:
