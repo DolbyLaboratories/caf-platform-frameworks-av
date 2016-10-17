@@ -31,11 +31,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libsoundtriggerservice \
 	libutils
 
-ifdef DOLBY_ENABLE
-LOCAL_SHARED_LIBRARIES += $(dolby_shared_service_lib)
-LOCAL_STATIC_LIBRARIES += $(dolby_static_service_lib)
-endif
-
 LOCAL_C_INCLUDES := \
 	frameworks/av/services/audioflinger \
 	frameworks/av/services/audiopolicy \
@@ -73,5 +68,12 @@ LOCAL_MODULE := audioserver
 LOCAL_INIT_RC := audioserver.rc
 
 LOCAL_CFLAGS := -Werror -Wall
+# DOLBY_START
+ifeq ($(strip $(DOLBY_ENABLE)),true)
+    LOCAL_CFLAGS += $(dolby_cflags)
+    LOCAL_SHARED_LIBRARIES += $(dolby_shared_service_lib)
+    LOCAL_STATIC_LIBRARIES += $(dolby_static_service_lib)
+endif
+# DOLBY_END
 
 include $(BUILD_EXECUTABLE)
